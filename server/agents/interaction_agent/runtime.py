@@ -1,15 +1,21 @@
 """Interaction Agent Runtime - handles LLM calls for user and agent turns."""
 
+import inspect
 import json
+import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 from .agent import build_system_prompt, prepare_message_with_history
 from .tools import ToolResult, get_tool_schemas, handle_tool_call
+from ... import flags
 from ...config import get_settings
 from ...services.conversation import get_conversation_log, get_working_memory_log
 from ...openrouter_client import request_chat_completion
 from ...logging_config import logger
+from ...services import telemetry
+from ...services.context import has_turn, turn_scope
 
 
 @dataclass
@@ -39,6 +45,9 @@ class _LoopSummary:
     user_messages: List[str] = field(default_factory=list)
     tool_names: List[str] = field(default_factory=list)
     execution_agents: Set[str] = field(default_factory=set)
+    rounds: int = 0
+    ended_by: str = "error"  # no_tools | wait | limit | error
+    dispatches: int = 0
 
 
 class InteractionAgentRuntime:
@@ -65,6 +74,13 @@ class InteractionAgentRuntime:
     async def execute(self, user_message: str) -> InteractionResult:
         """Handle a user-authored message."""
 
+        # The HTTP handler (and the eval runner) open the user turn; open one here
+        # only for legacy callers so correlation never falls back to "system".
+        scope = nullcontext() if has_turn() else turn_scope("user", user_message=user_message)
+        with scope:
+            return await self._execute_user_message(user_message)
+
+    async def _execute_user_message(self, user_message: str) -> InteractionResult:
         try:
             transcript_before = self._load_conversation_transcript()
             self.conversation_log.record_user_message(user_message)
@@ -97,9 +113,19 @@ class InteractionAgentRuntime:
             )
 
     # Handle incoming messages from execution agents and generate appropriate responses
-    async def handle_agent_message(self, agent_message: str) -> InteractionResult:
-        """Process a status update emitted by an execution agent."""
+    async def handle_agent_message(self, agent_message: str, origin: str = "agent") -> InteractionResult:
+        """Process a status update emitted by an execution agent.
 
+        ``origin`` labels the turn only when the caller has not opened one
+        (callers in this codebase open their own scope); kept optional for
+        backward compatibility.
+        """
+
+        scope = nullcontext() if has_turn() else turn_scope(origin)
+        with scope:
+            return await self._handle_agent_message(agent_message)
+
+    async def _handle_agent_message(self, agent_message: str) -> InteractionResult:
         try:
             transcript_before = self._load_conversation_transcript()
             self.conversation_log.record_agent_message(agent_message)
@@ -140,8 +166,33 @@ class InteractionAgentRuntime:
         """Iteratively query the LLM until it issues a final response."""
 
         summary = _LoopSummary()
+        try:
+            await self._iterate(system_prompt, messages, summary)
+        finally:
+            telemetry.emit(
+                "ia_turn",
+                rounds=summary.rounds,
+                ended_by=summary.ended_by,
+                user_messages_sent=len(summary.user_messages),
+                dispatches=summary.dispatches,
+            )
+
+        if not summary.user_messages and not summary.last_assistant_text:
+            logger.warning("Interaction loop exited without assistant content")
+
+        return summary
+
+    async def _iterate(
+        self,
+        system_prompt: str,
+        messages: List[Dict[str, Any]],
+        summary: _LoopSummary,
+    ) -> None:
+        """The round loop. Sets ``summary.ended_by`` to how the turn ended."""
 
         for iteration in range(self.MAX_TOOL_ITERATIONS):
+            round_started = time.monotonic()
+            summary.rounds = iteration + 1
             response = await self._make_llm_call(system_prompt, messages)
             assistant_message = self._extract_assistant_message(response)
 
@@ -161,17 +212,22 @@ class InteractionAgentRuntime:
             messages.append(assistant_entry)
 
             if not parsed_tool_calls:
+                summary.ended_by = "no_tools"
+                self._emit_round(iteration, [], round_started)
                 break
 
             for tool_call in parsed_tool_calls:
                 summary.tool_names.append(tool_call.name)
 
                 if tool_call.name == "send_message_to_agent":
+                    summary.dispatches += 1
                     agent_name = tool_call.arguments.get("agent_name")
                     if isinstance(agent_name, str) and agent_name:
                         summary.execution_agents.add(agent_name)
 
                 result = self._execute_tool(tool_call)
+                if inspect.isawaitable(result):  # only approve_action with sends off the loop
+                    result = await self._await_tool(tool_call, result)
 
                 if result.user_message:
                     summary.user_messages.append(result.user_message)
@@ -182,13 +238,28 @@ class InteractionAgentRuntime:
                     "content": self._format_tool_result(tool_call, result),
                 }
                 messages.append(tool_message)
+
+            self._emit_round(iteration, [call.name for call in parsed_tool_calls], round_started)
+
+            # 1.1 (M3): `wait` means "nothing more to do now". Every tool call of this
+            # round has already run; end the turn instead of spending another LLM
+            # call. send_message_to_user is deliberately NOT terminal: the IA often
+            # replies in round 1 and dispatches in round 2.
+            if flags.enabled("WAIT_ENDS_TURN") and any(call.name == "wait" for call in parsed_tool_calls):
+                summary.ended_by = "wait"
+                break
         else:
+            summary.ended_by = "limit"
             raise RuntimeError("Reached tool iteration limit without final response")
 
-        if not summary.user_messages and not summary.last_assistant_text:
-            logger.warning("Interaction loop exited without assistant content")
-
-        return summary
+    @staticmethod
+    def _emit_round(index: int, tool_names: List[str], started: float) -> None:
+        telemetry.emit(
+            "ia_round",
+            index=index,
+            tools=tool_names,
+            latency_ms=round((time.monotonic() - started) * 1000, 1),
+        )
 
     # Load conversation history, preferring summarized version if available
     def _load_conversation_transcript(self) -> str:
@@ -216,6 +287,7 @@ class InteractionAgentRuntime:
             system=system_prompt,
             api_key=self.api_key,
             tools=self.tool_schemas,
+            role="interaction",
         )
 
     # Extract the assistant's message from the OpenRouter API response structure
@@ -295,6 +367,8 @@ class InteractionAgentRuntime:
         try:
             self._log_tool_invocation(tool_call, stage="start")
             result = handle_tool_call(tool_call.name, tool_call.arguments)
+            if inspect.isawaitable(result):
+                return result  # finished by _await_tool
         except Exception as exc:  # pragma: no cover - defensive
             logger.error(
                 "Tool execution crashed",
@@ -324,6 +398,17 @@ class InteractionAgentRuntime:
                 "status": status,
             },
         )
+        self._log_tool_invocation(tool_call, stage="done", result=result)
+        return result
+
+    async def _await_tool(self, tool_call: _ToolCall, pending: Any) -> ToolResult:
+        try:
+            result = await pending
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Tool execution crashed", extra={"tool": tool_call.name, "error": str(exc)})
+            return ToolResult(success=False, payload={"error": str(exc)})
+        if not isinstance(result, ToolResult):
+            result = ToolResult(success=True, payload=result)
         self._log_tool_invocation(tool_call, stage="done", result=result)
         return result
 

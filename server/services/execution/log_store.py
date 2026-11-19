@@ -12,7 +12,9 @@ from ...logging_config import logger
 from ...utils.timezones import now_in_user_timezone
 
 
-_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+from ...paths import data_dir
+
+_DATA_DIR = data_dir()  # OPENPOKE_DATA_DIR override; default unchanged (server/data)
 _EXECUTION_LOG_DIR = _DATA_DIR / "execution_agents"
 
 
@@ -37,6 +39,14 @@ def _decode_payload(payload: str) -> str:
 
 
 _ATTR_PATTERN = re.compile(r"(\w+)\s*=\s*\"([^\"]*)\"")
+
+
+def render_entry(tag: str, timestamp: str, payload: str) -> str:
+    """Render one journal entry exactly as it appears in the EA prompt history."""
+    escaped = escape(payload, quote=False)
+    if timestamp:
+        return f"<{tag} timestamp=\"{timestamp}\">{escaped}</{tag}>"
+    return f"<{tag}>{escaped}</{tag}>"
 
 
 class ExecutionAgentLogStore:
@@ -144,14 +154,11 @@ class ExecutionAgentLogStore:
 
     def load_transcript(self, agent_name: str) -> str:
         """Load the full transcript for inclusion in system prompt."""
-        parts: List[str] = []
-        for tag, timestamp, payload in self.iter_entries(agent_name):
-            escaped = escape(payload, quote=False)
-            if timestamp:
-                parts.append(f"<{tag} timestamp=\"{timestamp}\">{escaped}</{tag}>")
-            else:
-                parts.append(f"<{tag}>{escaped}</{tag}>")
-        return "\n".join(parts)
+        return "\n".join(render_entry(*entry) for entry in self.iter_entries(agent_name))
+
+    def record_entry(self, agent_name: str, tag: str, payload: str) -> None:
+        """Append an entry with a custom tag (e.g. <tool_ids>); load_transcript renders any tag."""
+        self._append(agent_name, tag, payload)
 
     def load_recent(self, agent_name: str, limit: int = 10) -> list[tuple[str, str, str]]:
         """Load recent log entries."""

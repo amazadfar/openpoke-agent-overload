@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 from fastapi import status
 from fastapi.responses import JSONResponse
 
+from ... import flags
 from ...config import Settings, get_settings
 from ...logging_config import logger
 from ...models import GmailConnectPayload, GmailDisconnectPayload, GmailStatusPayload
@@ -35,7 +36,12 @@ def _set_active_gmail_user_id(user_id: Optional[str]) -> None:
         _ACTIVE_USER_ID = sanitized or None
 
 
+FAKE_GMAIL_USER_ID = "fake-user"
+
+
 def get_active_gmail_user_id() -> Optional[str]:
+    if flags.fake_gmail_enabled():
+        return FAKE_GMAIL_USER_ID
     with _ACTIVE_USER_ID_LOCK:
         return _ACTIVE_USER_ID
 
@@ -48,6 +54,9 @@ def _gmail_import_client():
 # Get or create a singleton Composio client instance with thread-safe initialization
 def _get_composio_client(settings: Optional[Settings] = None):
     global _CLIENT
+    if flags.fake_gmail_enabled():
+        # Safety: with OPENPOKE_FAKE_GMAIL=1 nothing may reach the real account.
+        raise RuntimeError("Composio client is disabled while OPENPOKE_FAKE_GMAIL=1")
     if _CLIENT is not None:
         return _CLIENT
 
@@ -487,6 +496,12 @@ def execute_gmail_tool(
                 prepared_arguments[key] = value
 
     prepared_arguments.setdefault("user_id", "me")
+
+    # Single real-vs-fake switch: with OPENPOKE_FAKE_GMAIL=1 Composio is never touched.
+    if flags.fake_gmail_enabled():
+        from ...testing.fake_gmail import get_fake_gmail
+
+        return get_fake_gmail().execute(tool_name, composio_user_id, prepared_arguments)
 
     try:
         client = _get_composio_client()

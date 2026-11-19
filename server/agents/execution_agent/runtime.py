@@ -2,14 +2,18 @@
 
 import inspect
 import json
+import time
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 
 from .agent import ExecutionAgent
 from .tools import get_tool_schemas, get_tool_registry
+from ... import flags
 from ...config import get_settings
+from ...overload_config import EA_HISTORY_MAX_CHARS, EA_HISTORY_REQUESTS
 from ...openrouter_client import request_chat_completion
 from ...logging_config import logger
+from ...services import telemetry
 
 
 @dataclass
@@ -20,6 +24,9 @@ class ExecutionResult:
     response: str
     error: Optional[str] = None
     tools_executed: List[str] = None
+    # SEND_LEDGER honest outcome for a stopped run: "partial" (something was sent) or
+    # "unknown" (a send was in flight). None keeps the classic SUCCESS/FAILED report.
+    outcome: Optional[str] = None
 
 
 class ExecutionAgentRuntime:
@@ -28,9 +35,21 @@ class ExecutionAgentRuntime:
     MAX_TOOL_ITERATIONS = 8
 
     # Initialize execution agent runtime with settings, tools, and agent instance
-    def __init__(self, agent_name: str):
+    def __init__(self, agent_name: str, card_text: Optional[str] = None):
         settings = get_settings()
-        self.agent = ExecutionAgent(agent_name)
+        if flags.enabled("EA_HISTORY_WINDOW"):
+            # 1.2 (M2): bounded history instead of replaying the whole journal.
+            self.agent = ExecutionAgent(
+                agent_name,
+                conversation_limit=int(EA_HISTORY_REQUESTS.get()),
+                max_history_chars=int(EA_HISTORY_MAX_CHARS.get()),
+                card_text=card_text,
+            )
+        else:
+            self.agent = ExecutionAgent(agent_name)
+        # Identifiers seen by this run's tool calls (KEEP_TOOL_IDS); read by the agent card.
+        self.collected_ids: List[Any] = []
+        self.tool_log: List[Dict[str, Any]] = []
         self.api_key = settings.openrouter_api_key
         self.model = settings.execution_agent_model
         self.tool_registry = get_tool_registry(agent_name=agent_name)
@@ -45,6 +64,13 @@ class ExecutionAgentRuntime:
         try:
             # Build system prompt with history
             system_prompt = self.agent.build_system_prompt_with_history()
+            telemetry.emit(
+                "prompt_parts",
+                role="execution",
+                **self.agent.last_prompt_parts,
+                instruction_chars=len(instructions or ""),
+                tool_schema_chars=len(json.dumps(self.tool_schemas)),
+            )
 
             # Start conversation with the instruction
             messages = [{"role": "user", "content": instructions}]
@@ -107,11 +133,16 @@ class ExecutionAgentRuntime:
                         logger.warning(f"[{self.agent.name}] Tool {tool_name} failed: {error_detail}")
                         record_payload = error_detail
 
-                    self.agent.record_tool_execution(
+                    extracted = self.agent.record_tool_execution(
                         tool_name,
                         self._safe_json_dump(tool_args),
-                        record_payload
+                        record_payload,
+                        raw_arguments=tool_args,
+                        raw_result=result,
                     )
+                    if extracted is not None:
+                        self.collected_ids.append(extracted)
+                    self.tool_log.append({"tool": tool_name, "ok": success, "arguments": tool_args, "result": result})
 
                     tool_message = {
                         "role": "tool",
@@ -158,7 +189,8 @@ class ExecutionAgentRuntime:
             messages=messages,
             system=system_prompt,
             api_key=self.api_key,
-            tools=tools_to_send
+            tools=tools_to_send,
+            role="execution",
         )
 
     # Parse and validate tool calls from LLM response into structured format
@@ -227,10 +259,21 @@ class ExecutionAgentRuntime:
         if not tool_func:
             return False, {"error": f"Unknown tool: {tool_name}"}
 
+        started = time.monotonic()
+        ok = False
         try:
             result = tool_func(**arguments)
             if inspect.isawaitable(result):
                 result = await result
+            ok = True
             return True, result
         except Exception as e:
             return False, {"error": str(e)}
+        finally:
+            telemetry.emit(
+                "tool",
+                name=tool_name,
+                args_sha=telemetry.sha(self._safe_json_dump(arguments)),
+                ok=ok,
+                latency_ms=round((time.monotonic() - started) * 1000, 1),
+            )

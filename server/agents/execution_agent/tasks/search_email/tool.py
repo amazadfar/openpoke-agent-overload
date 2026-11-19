@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from server import flags
 from server.config import get_settings
+from server.services.gmail.executor import run_gmail
 from server.logging_config import logger
 from server.openrouter_client import request_chat_completion
 from server.services.execution import get_execution_agent_logs
@@ -153,6 +155,7 @@ async def _run_email_search(
             system=get_system_prompt(),
             api_key=api_key,
             tools=[GMAIL_FETCH_EMAILS_SCHEMA, _COMPLETION_TOOL_SCHEMA],
+            role="search",
         )
         
         # Process assistant response
@@ -312,11 +315,19 @@ async def _perform_search(
     )
 
     try:
-        raw_result = execute_gmail_tool(
-            "GMAIL_FETCH_EMAILS",
-            composio_user_id,
-            arguments=composio_arguments,
-        )
+        if flags.enabled("GMAIL_READS_OFF_LOOP"):
+            raw_result = await run_gmail(
+                execute_gmail_tool,
+                "GMAIL_FETCH_EMAILS",
+                composio_user_id,
+                arguments=composio_arguments,
+            )
+        else:
+            raw_result = execute_gmail_tool(
+                "GMAIL_FETCH_EMAILS",
+                composio_user_id,
+                arguments=composio_arguments,
+            )
     except Exception as exc:
         logger.error(f"[EMAIL_SEARCH] Gmail API failed for '{query}': {exc}")
         return EmailSearchToolResult(

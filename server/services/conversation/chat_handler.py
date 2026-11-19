@@ -8,6 +8,7 @@ from ...agents.interaction_agent.runtime import InteractionAgentRuntime
 from ...logging_config import logger
 from ...models import ChatMessage, ChatRequest
 from ...utils import error_response
+from ..context import turn_scope
 
 
 # Extract the most recent user message from the chat request payload
@@ -39,10 +40,13 @@ async def handle_chat_request(payload: ChatRequest) -> Union[PlainTextResponse, 
         return error_response(str(ve), status_code=status.HTTP_400_BAD_REQUEST)
 
     async def _run_interaction() -> None:
-        try:
-            await runtime.execute(user_message=user_content)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("chat task failed", extra={"error": str(exc)})
+        # Root of a user-originated chain; user_message is the raw HTTP-received
+        # text (the only source an approval code is accepted from, see SEND_GATE).
+        with turn_scope("user", user_message=user_content):
+            try:
+                await runtime.execute(user_message=user_content)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("chat task failed", extra={"error": str(exc)})
 
     asyncio.create_task(_run_interaction())
 

@@ -11,3 +11,19 @@ dependencies = [
     "python-dateutil>=2.9.0",
     "uvicorn[standard]>=0.30.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
+filterwarnings = ["ignore:\\s*on_event is deprecated:DeprecationWarning"]
+markers = [
+    "baseline: characterization test pinning today's behaviour with every flag off",
+    "slow: takes several seconds of wall time (real asyncio timing)",
+    "parity: runs the baseline tree and the current tree in subprocesses",
+]

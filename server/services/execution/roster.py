@@ -81,12 +81,70 @@ class AgentRoster:
             logger.warning(f"Failed to clear roster.json: {exc}")
 
 
-_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+from ...paths import data_dir
+
+_DATA_DIR = data_dir()  # OPENPOKE_DATA_DIR override; default unchanged (server/data)
 _ROSTER_PATH = _DATA_DIR / "execution_agents" / "roster.json"
 
 _agent_roster = AgentRoster(_ROSTER_PATH)
 
 
-def get_agent_roster() -> AgentRoster:
-    """Get the singleton roster instance."""
-    return _agent_roster
+class RosterFacade:
+    """Same methods as AgentRoster (task 2.1 compatibility).
+
+    AGENT_REGISTRY off: pure pass-through, roster.json is authoritative.
+    AGENT_REGISTRY on: backed by the registry (canonical names only) and
+    dual-writing canonical names to roster.json, so turning the flag off again
+    leaves a consistent roster.
+    """
+
+    def __init__(self, roster: AgentRoster) -> None:
+        self._roster = roster
+
+    @staticmethod
+    def _registry():
+        from ... import flags
+
+        if not flags.enabled("AGENT_REGISTRY"):
+            return None
+        from ..agents.registry import get_agent_registry
+
+        return get_agent_registry()
+
+    def load(self) -> None:
+        self._roster.load()
+        registry = self._registry()
+        if registry is not None:
+            registry.migrate_if_needed()
+            registry.sync_from_roster(self._roster.get_agents())
+
+    def save(self) -> None:
+        self._roster.save()
+
+    def get_agents(self) -> list[str]:
+        registry = self._registry()
+        if registry is None:
+            return self._roster.get_agents()
+        return [row.name for row in registry.list_all()]
+
+    def add_agent(self, agent_name: str) -> None:
+        registry = self._registry()
+        if registry is None:
+            self._roster.add_agent(agent_name)
+            return
+        row, _ = registry.create(agent_name)
+        self._roster.add_agent(row.name)
+
+    def clear(self) -> None:
+        self._roster.clear()
+        registry = self._registry()
+        if registry is not None:
+            registry.clear()
+
+
+_roster_facade = RosterFacade(_agent_roster)
+
+
+def get_agent_roster() -> RosterFacade:
+    """Get the singleton roster (a facade over roster.json and, with AGENT_REGISTRY, the registry)."""
+    return _roster_facade

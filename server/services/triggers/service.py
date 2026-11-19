@@ -180,6 +180,14 @@ class TriggerService:
         updated = self._store.update(trigger_id, agent_name, fields)
         return self._store.fetch_one(trigger_id, agent_name) if updated else existing
 
+    def get_trigger(self, trigger_id: int) -> Optional[TriggerRecord]:
+        """Look up a trigger without knowing its owner (restart recovery)."""
+        return self._store.fetch_by_id(trigger_id)
+
+    def agent_names(self, *, active_only: bool = False) -> List[str]:
+        """Distinct trigger owners (registry migration and dormancy)."""
+        return self._store.agent_names(active_only=active_only)
+
     def list_triggers(self, *, agent_name: str) -> List[TriggerRecord]:
         return self._store.list_for_agent(agent_name)
 

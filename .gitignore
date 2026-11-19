@@ -44,3 +44,6 @@ server/venv/
 # Generated documentation / analysis artifacts
 server/repomix-output.txt
 server/plans/
+
+# Raw eval runs (telemetry + fake-Gmail logs); only compact metrics are committed
+evals/results/raw/

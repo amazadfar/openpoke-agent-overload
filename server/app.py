@@ -7,7 +7,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from . import flags
 from .config import get_settings
+from .lifecycle import shutdown_fixes, startup_fixes
 from .logging_config import configure_logging, logger
 from .routes import api_router
 from .services import get_important_email_watcher, get_trigger_scheduler
@@ -68,6 +70,10 @@ app.include_router(api_router)
 @app.on_event("startup")
 # Initialize background services (trigger scheduler and email watcher) when the app starts
 async def _start_trigger_scheduler() -> None:
+    flags.validate()  # fail fast on a half-enabled fix
+    if flags.active_flags():
+        logger.info("OpenPoke overload fixes enabled: %s", ", ".join(flags.active_flags()))
+    await startup_fixes()
     scheduler = get_trigger_scheduler()
     await scheduler.start()
     watcher = get_important_email_watcher()
@@ -81,6 +87,7 @@ async def _stop_trigger_scheduler() -> None:
     await scheduler.stop()
     watcher = get_important_email_watcher()
     await watcher.stop()
+    await shutdown_fixes()
 
 
 __all__ = ["app"]

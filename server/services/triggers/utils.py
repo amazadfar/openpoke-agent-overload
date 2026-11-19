@@ -16,9 +16,11 @@ VALID_STATUSES = {"active", "paused", "completed"}
 
 
 def utc_now() -> datetime:
-    """Return the current time in UTC."""
+    """Return the current time in UTC (== datetime.now(UTC) unless a test/eval advanced the clock)."""
 
-    return datetime.now(UTC)
+    from ...utils import clock
+
+    return clock.now()
 
 
 def to_storage_timestamp(moment: datetime) -> str:

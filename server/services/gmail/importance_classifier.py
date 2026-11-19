@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from .processing import ProcessedEmail
 from ...config import get_settings
@@ -78,7 +78,14 @@ def _format_email_payload(email: ProcessedEmail) -> str:
 
 
 async def classify_email_importance(email: ProcessedEmail) -> Optional[str]:
-    """Return summary text when email should be surfaced; otherwise None."""
+    """Return summary text when email should be surfaced; otherwise None (errors included)."""
+    summary, _ = await classify_email_importance_detailed(email)
+    return summary
+
+
+async def classify_email_importance_detailed(email: ProcessedEmail) -> Tuple[Optional[str], Optional[str]]:
+    """(summary, error). ``error`` is set when the email could NOT be classified, so the
+    single-flight watcher (2.8) can retry it instead of silently treating it as unimportant."""
 
     settings = get_settings()
     api_key = settings.openrouter_api_key
@@ -86,7 +93,7 @@ async def classify_email_importance(email: ProcessedEmail) -> Optional[str]:
 
     if not api_key:
         logger.warning("Skipping importance check; OpenRouter API key missing")
-        return None
+        return None, "no_api_key"
 
     user_payload = _format_email_payload(email)
     messages = [{"role": "user", "content": user_payload}]
@@ -98,19 +105,20 @@ async def classify_email_importance(email: ProcessedEmail) -> Optional[str]:
             system=_SYSTEM_PROMPT,
             api_key=api_key,
             tools=[_TOOL_SCHEMA],
+            role="classifier",
         )
     except OpenRouterError as exc:
         logger.error(
             "Importance classification failed",
             extra={"message_id": email.id, "error": str(exc)},
         )
-        return None
+        return None, "llm_error"
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception(
             "Unexpected error during importance classification",
             extra={"message_id": email.id},
         )
-        return None
+        return None, "unexpected_error"
 
     choice = (response.get("choices") or [{}])[0]
     message = choice.get("message") or {}
@@ -128,28 +136,28 @@ async def classify_email_importance(email: ProcessedEmail) -> Optional[str]:
                 "Importance tool returned invalid arguments",
                 extra={"message_id": email.id},
             )
-            return None
+            return None, "invalid_arguments"
 
         important = bool(arguments.get("important"))
         summary = arguments.get("summary")
 
         if not important:
-            return None
+            return None, None
 
         if not isinstance(summary, str) or not summary.strip():
             logger.warning(
                 "Importance tool marked email important without summary",
                 extra={"message_id": email.id},
             )
-            return None
+            return None, None
 
-        return summary.strip()
+        return summary.strip(), None
 
     logger.debug(
         "Importance classification produced no tool call",
         extra={"message_id": email.id},
     )
-    return None
+    return None, None
 
 
 def _coerce_arguments(raw: Any) -> Optional[Dict[str, Any]]:
@@ -167,4 +175,4 @@ def _coerce_arguments(raw: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
-__all__ = ["classify_email_importance"]
+__all__ = ["classify_email_importance", "classify_email_importance_detailed"]

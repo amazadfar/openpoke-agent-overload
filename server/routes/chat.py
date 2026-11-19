@@ -42,6 +42,15 @@ def clear_history() -> ChatHistoryClearResponse:
     trigger_service = get_trigger_service()
     trigger_service.clear_all()
 
+    # Trigger-occurrence claims go with the triggers. The send ledger is a safety
+    # record and is deliberately kept (U12).
+    from .. import flags
+
+    if flags.enabled("SEND_LEDGER"):
+        from ..services.safety.trigger_claims import get_trigger_claims
+
+        get_trigger_claims().clear()
+
     return ChatHistoryClearResponse()
 
 

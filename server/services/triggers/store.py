@@ -75,6 +75,11 @@ class TriggerStore:
             ).fetchone()
         return self._row_to_record(row) if row else None
 
+    def fetch_by_id(self, trigger_id: int) -> Optional[TriggerRecord]:
+        with self._lock, self._connect() as conn:
+            row = conn.execute("SELECT * FROM triggers WHERE id = ?", (trigger_id,)).fetchone()
+        return self._row_to_record(row) if row else None
+
     def update(self, trigger_id: int, agent_name: str, fields: Dict[str, Any]) -> bool:
         if not fields:
             return False
@@ -116,6 +121,13 @@ class TriggerStore:
         with self._lock, self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [self._row_to_record(row) for row in rows]
+
+    def agent_names(self, *, active_only: bool = False) -> List[str]:
+        sql = "SELECT DISTINCT agent_name FROM triggers"
+        if active_only:
+            sql += " WHERE status = 'active'"
+        with self._lock, self._connect() as conn:
+            return [row[0] for row in conn.execute(sql + " ORDER BY agent_name").fetchall()]
 
     def clear_all(self) -> None:
         with self._lock, self._connect() as conn:

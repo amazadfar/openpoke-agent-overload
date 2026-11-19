@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import copy
+import functools
 import json
 from typing import Any, Callable, Dict, List, Optional
 
+from server import flags
+from server.services import telemetry
+from server.services.gmail.executor import run_gmail
 from server.services.execution import get_execution_agent_logs
 from server.services.gmail import execute_gmail_tool, get_active_gmail_user_id
 
 _GMAIL_AGENT_NAME = "gmail-execution-agent"
+
+# Composio actions whose success means an email left the account.
+EXTERNAL_SEND_ACTIONS = frozenset({"GMAIL_SEND_DRAFT", "GMAIL_REPLY_TO_THREAD", "GMAIL_FORWARD_MESSAGE"})
 
 _SCHEMAS: List[Dict[str, Any]] = [
     {
@@ -314,11 +322,26 @@ _SCHEMAS: List[Dict[str, Any]] = [
 _LOG_STORE = get_execution_agent_logs()
 
 
+_CONFIRM_PROPERTY = {
+    "type": "integer",
+    "description": (
+        "Only when a previous attempt returned blocked_duplicate or confirmation_required AND the user explicitly "
+        "confirmed sending again: the id of that previous record."
+    ),
+}
+
+
 # Return Gmail tool schemas
 def get_schemas() -> List[Dict[str, Any]]:
-    """Return Gmail tool schemas."""
-    
-    return _SCHEMAS
+    """Return Gmail tool schemas (exactly the original list unless SEND_LEDGER is on)."""
+
+    if not flags.enabled("SEND_LEDGER"):
+        return _SCHEMAS
+    schemas = copy.deepcopy(_SCHEMAS)
+    for schema in schemas:
+        if schema["function"]["name"] in EXTERNAL_SEND_TOOLS:
+            schema["function"]["parameters"]["properties"]["confirm_duplicate_of"] = dict(_CONFIRM_PROPERTY)
+    return schemas
 
 
 # Execute a Gmail tool and record the action for the execution agent journal
@@ -334,12 +357,22 @@ def _execute(tool_name: str, composio_user_id: str, arguments: Dict[str, Any]) -
             _GMAIL_AGENT_NAME,
             description=f"{tool_name} failed | args={payload_str} | error={exc}",
         )
+        if tool_name in EXTERNAL_SEND_ACTIONS:
+            telemetry.emit("side_effect", action=tool_name, status="exception", ledger_id=None)
         raise
 
     _LOG_STORE.record_action(
         _GMAIL_AGENT_NAME,
         description=f"{tool_name} succeeded | args={payload_str}",
     )
+    if tool_name in EXTERNAL_SEND_ACTIONS:
+        reported = result.get("successful") if isinstance(result, dict) else None
+        telemetry.emit(
+            "side_effect",
+            action=tool_name,
+            status="sent" if reported is True else ("failed" if reported is False else "returned"),
+            ledger_id=None,
+        )
     return result
 
 
@@ -516,11 +549,38 @@ def gmail_search_people(
     return _execute("GMAIL_SEARCH_PEOPLE", composio_user_id, arguments)
 
 
+# Tools whose effect never leaves the account (reads, plus draft create/delete).
+OFF_LOOP_TOOLS = (
+    "gmail_create_draft",
+    "gmail_delete_draft",
+    "gmail_get_contacts",
+    "gmail_get_people",
+    "gmail_list_drafts",
+    "gmail_search_people",
+)
+# Tools after which an email has left the account.
+EXTERNAL_SEND_TOOLS = {
+    "gmail_execute_draft": "GMAIL_SEND_DRAFT",
+    "gmail_reply_to_thread": "GMAIL_REPLY_TO_THREAD",
+    "gmail_forward_email": "GMAIL_FORWARD_MESSAGE",
+}
+
+
+def _off_loop(fn: Callable[..., Dict[str, Any]]) -> Callable[..., Any]:
+    """1.5 (M5): run a blocking Composio tool on the Gmail executor instead of the event loop."""
+
+    @functools.wraps(fn)
+    async def wrapper(**kwargs: Any) -> Dict[str, Any]:
+        return await run_gmail(fn, **kwargs)
+
+    return wrapper
+
+
 # Return Gmail tool callables
 def build_registry(agent_name: str) -> Dict[str, Callable[..., Any]]:  # noqa: ARG001
-    """Return Gmail tool callables."""
-    
-    return {
+    """Return Gmail tool callables (flag-scoped wrappers; with every flag off, the original functions)."""
+
+    registry: Dict[str, Callable[..., Any]] = {
         "gmail_create_draft": gmail_create_draft,
         "gmail_execute_draft": gmail_execute_draft,
         "gmail_delete_draft": gmail_delete_draft,
@@ -531,6 +591,19 @@ def build_registry(agent_name: str) -> Dict[str, Callable[..., Any]]:  # noqa: A
         "gmail_list_drafts": gmail_list_drafts,
         "gmail_search_people": gmail_search_people,
     }
+    if flags.enabled("SEND_LEDGER"):
+        from server.services.safety import send_guard
+
+        registry["gmail_create_draft"] = send_guard.recording_drafts(gmail_create_draft, agent_name)
+    if flags.enabled("GMAIL_READS_OFF_LOOP"):
+        for name in OFF_LOOP_TOOLS:
+            registry[name] = _off_loop(registry[name])
+    if flags.enabled("SEND_LEDGER"):
+        from server.services.safety import send_guard
+
+        for name, action in EXTERNAL_SEND_TOOLS.items():
+            registry[name] = send_guard.guarded_send(name, action, registry[name], agent_name)
+    return registry
 
 
 __all__ = [
