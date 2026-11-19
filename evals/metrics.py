@@ -428,7 +428,8 @@ def duplicate_send_items(result: Dict[str, Any]) -> List[Dict[str, Any]]:
             if same_fp or previous_identity[:2] == identity[:2]:
                 confirmed = any(previous["seq"] <= s.get("gmail_seq_start", -1) < send["seq"] for s in confirm_steps)
                 if same_fp or not confirmed:
-                    items.append(_item(result, send, _action_step(result, send), duplicate_of_seq=previous["seq"]))
+                    items.append(_item(result, send, _action_step(result, send), duplicate_of_seq=previous["seq"],
+                                       run_id=send.get("run_id")))
                     break
         seen.append((identity, send))
     return items

@@ -82,26 +82,58 @@ def test_near_duplicate_needs_confirmation_within_window_only():
         assert isinstance(ledger.begin(reply(body="v3")), L.Started)
 
 
-def test_override_only_from_user_rooted_chains():
+def test_override_only_from_a_fresh_user_turn():
+    """confirm_duplicate_of is honoured only in a turn started by a user message, against an earlier
+    turn's record, and only after a block for that record was reported to an EARLIER turn."""
     ledger = L.get_ledger()
     with turn_scope("user"):
         sent = ledger.begin(reply())
         ledger.finish(sent.record_id, "sent")
+    with turn_scope("user"):  # an up-front confirm: no block was reported yet, so one more confirmation is needed
+        upfront = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)
+        assert isinstance(upfront, L.Blocked) and upfront.override_rejected
+        same_run = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)  # the turn that just received the block
+        assert isinstance(same_run, L.Blocked) and same_run.override_rejected
     with turn_scope("trigger"):
         rejected = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)
         assert isinstance(rejected, L.Blocked) and rejected.override_rejected
     with turn_scope("email") as email_turn, turn_scope("agent", parent=email_turn):
-        assert isinstance(ledger.begin(reply(body="v2"), confirm_duplicate_of=sent.record_id), L.ConfirmationRequired)
+        near = ledger.begin(reply(body="v2"), confirm_duplicate_of=sent.record_id)
+        assert isinstance(near, L.ConfirmationRequired) and near.override_rejected
+    # The L3 re-run case: an agent-started follow-up turn in a user-rooted chain may NOT confirm.
     with turn_scope("user") as user_turn, turn_scope("agent", parent=user_turn):
+        follow_up = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)
+        assert isinstance(follow_up, L.Blocked) and follow_up.override_rejected
+        near_follow_up = ledger.begin(reply(body="v2"), confirm_duplicate_of=sent.record_id)
+        assert isinstance(near_follow_up, L.ConfirmationRequired) and near_follow_up.override_rejected
+    with turn_scope("user"):  # a later user message confirming the resend (blocks were reported earlier)
         wrong_id = ledger.begin(reply(), confirm_duplicate_of=sent.record_id + 99)
-        assert isinstance(wrong_id, L.Blocked)
+        assert isinstance(wrong_id, L.Blocked) and not wrong_id.override_rejected
         ok = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)
         assert isinstance(ok, L.Started) and ok.override_of == sent.record_id
         ledger.finish(ok.record_id, "sent")
         twice = ledger.begin(reply(), confirm_duplicate_of=sent.record_id)
         assert isinstance(twice, L.Blocked)  # an override is itself at-most-once
+        same_turn = ledger.begin(reply(body="v2"), confirm_duplicate_of=ok.record_id)
+        assert isinstance(same_turn, L.ConfirmationRequired) and same_turn.override_rejected  # ok is from THIS turn
+    with turn_scope("user"):
         near_ok = ledger.begin(reply(body="v2"), confirm_duplicate_of=ok.record_id)
-        assert isinstance(near_ok, L.Started)
+        assert isinstance(near_ok, L.Started) and near_ok.override_of == ok.record_id
+
+
+def test_blocks_are_recorded_per_turn_and_survive_a_restart():
+    ledger = L.get_ledger()
+    with turn_scope("user"):
+        sent = ledger.begin(reply())
+        ledger.finish(sent.record_id, "sent")
+    with turn_scope("user") as asked:
+        assert isinstance(ledger.begin(reply()), L.Blocked)
+        assert isinstance(ledger.begin(reply()), L.Blocked)  # recorded once per (record, turn)
+    rows = db.read(lambda conn: conn.execute("SELECT previous_id, turn_id FROM side_effect_blocks").fetchall())
+    assert [tuple(r) for r in rows] == [(sent.record_id, asked.turn_id)]
+    fresh = L.SideEffectLedger()  # a new process sees the same safety.db
+    with turn_scope("user"):
+        assert isinstance(fresh.begin(reply(), confirm_duplicate_of=sent.record_id), L.Started)
 
 
 def test_stale_sweep():

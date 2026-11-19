@@ -3,7 +3,7 @@
  "variant": "baseline",
  "model": "openai/gpt-6-luna",
  "git_commit": "4484426",
- "raw_file": "20261119T204020Z_rerun-baseline.json",
+ "raw_file": "20261119T204020Z_rerun-baseline.json.gz",
  "rows": {
   "v2": [
    {

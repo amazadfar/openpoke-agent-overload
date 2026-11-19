@@ -108,6 +108,135 @@ def test_override_from_trigger_chain_is_rejected(set_flags, scripted_llm, fake_g
     assert len(fake_gmail.external_sends()) == 1
 
 
+def test_override_from_agent_follow_up_turn_needs_a_fresh_user_turn(set_flags, scripted_llm, fake_gmail):
+    """Regression for the L3 re-run duplicate (fixed variant, S4@500 rep 2).
+
+    1. user: "draft a reply"; the agent drafts AND replies (an unrequested send).
+    2. user: "send the draft"; the draft send is a near duplicate of that reply: confirmation_required.
+    3. The IA's follow-up turn (origin "agent", user-rooted, no new user message) re-dispatches and the
+       agent retries with confirm_duplicate_of. Before the fix this was accepted and a second email
+       went out. Now it is rejected, so the IA has to ask the user.
+    4. user: "yes, send it again"; the override is accepted and the draft is sent exactly once.
+    """
+    set_flags(*SAFE)
+    msg = seed_thread(fake_gmail)
+    plan = iter(["draft_and_reply", "send", "send_confirm", "send_confirm"])
+    state: dict = {"previous": None}
+    results = []  # (run step, ledger status, override note present, turn origin of the IA call that dispatched it)
+    ia_retried = []
+
+    def ea(call):
+        if round_index(call) == 0:
+            state["step"] = step = next(plan)
+            if step == "draft_and_reply":
+                return respond(tool_call("gmail_create_draft", recipient_email=CLIENT, subject="Re: Auto renewal AU-77120",
+                                         body="Draft for review.", thread_id=msg.thread_id))
+            extra = {"confirm_duplicate_of": state["previous"]} if step == "send_confirm" else {}
+            return respond(tool_call("gmail_execute_draft", draft_id=state["draft"], **extra))
+        result = (last_result(call) or {}).get("result") or {}
+        if state["step"] == "draft_and_reply" and round_index(call) == 1:
+            state["draft"] = next(iter(fake_gmail.drafts))
+            return reply_call(msg, body="Sent directly instead of drafting.")  # the unrequested send
+        status = result.get("status", "sent") if isinstance(result, dict) else "sent"
+        results.append((state["step"], status, "only accepted for user-originated" in str(result.get("message", ""))))
+        if status == "confirmation_required":
+            state["previous"] = result["previous"]["id"]
+            return final(f"Not sent: confirmation_required (previous record {state['previous']}).")
+        return final("Done.")
+
+    def ia(call):
+        if is_agent_turn(call) and round_index(call) == 0:
+            if "confirmation_required" in call.first_user_content and not ia_retried:
+                ia_retried.append(True)  # a misbehaving IA: confirms on the user's behalf in its follow-up turn
+                return respond(tool_call("send_message_to_agent", agent_name="Mailer",
+                                         instructions=f"Send the draft anyway, confirm_duplicate_of={state['previous']}."))
+            return respond(tool_call("send_message_to_user", message="Update"))
+        return final("")
+
+    scripted_llm.on("execution", ea)
+    scripted_llm.on("interaction", ia)
+
+    async def main():
+        for text in ("Draft a reply to Priya.", "OK, send the Priya draft."):
+            with turn_scope("user", user_message=text):
+                dispatch("Mailer", text)
+            await drain()
+        assert ia_retried, "the agent-origin follow-up turn must have attempted the override"
+        assert len(fake_gmail.external_sends()) == 1  # only the unrequested reply
+        with turn_scope("user", user_message="Yes, send it again."):
+            dispatch("Mailer", f"The user confirmed: send the draft again, confirm_duplicate_of={state['previous']}.")
+        await drain()
+
+    from server.services import telemetry
+
+    with telemetry.capture() as captured:
+        run_async(main)
+    assert results == [
+        ("draft_and_reply", "sent", False),               # 1: the unrequested reply went out
+        ("send", "confirmation_required", False),         # 2: near duplicate of the unrequested reply
+        ("send_confirm", "confirmation_required", True),  # 3: the agent-origin follow-up's override is rejected
+        ("send_confirm", "sent", False),                  # 4: a fresh user turn confirms
+    ], results
+    sends = fake_gmail.external_sends()
+    assert [s["action"] for s in sends] == ["GMAIL_REPLY_TO_THREAD", "GMAIL_SEND_DRAFT"]  # the draft went out exactly once
+    rows = get_ledger().all()
+    assert [r.status for r in rows] == ["sent", "sent"] and rows[-1].override_of == rows[0].id
+    blocked = [e for e in captured if e["event"] == "side_effect" and e.get("status") == "blocked"]
+    assert [(e["origin"], e["override_rejected"]) for e in blocked] == [("user", False), ("agent", True)]
+
+
+def test_agent_cannot_confirm_its_own_block_within_the_users_turn(set_flags, scripted_llm, fake_gmail):
+    """The run that receives confirmation_required retries at once with confirm_duplicate_of.
+
+    It is a user-started turn and the previous record is from an earlier turn, but the block was
+    reported to THIS turn, so the override is rejected: the user has to be asked first.
+    """
+    set_flags(*SAFE)
+    msg = seed_thread(fake_gmail)
+    seen = []
+
+    def ea(call):
+        if round_index(call) == 0:
+            return reply_call(msg, body=f"Version {len(seen) + 1}.")
+        result = (last_result(call) or {}).get("result") or {}
+        seen.append(result)
+        if isinstance(result, dict) and result.get("status") == "confirmation_required" and round_index(call) == 1:
+            return reply_call(msg, body="Version 2.", confirm_duplicate_of=result["previous"]["id"])  # self-confirm
+        return final("Done.")
+
+    scripted_llm.on("execution", ea)
+    run_turns(scripted_llm, ["reply v1", "reply v2"])
+    assert [r.get("status") for r in seen[1:]] == ["confirmation_required", "confirmation_required"]
+    assert "only accepted for user-originated" in seen[-1]["message"]
+    assert len(fake_gmail.external_sends()) == 1
+
+
+def test_up_front_resend_request_needs_one_more_confirmation(set_flags, scripted_llm, fake_gmail):
+    """The accepted cost: "send it again even if it is a duplicate" in the same message is not enough.
+
+    The ledger has not told any earlier turn about the duplicate, so the first override is refused and
+    the user is asked once; the confirmation in the next user turn sends it, exactly once.
+    """
+    set_flags(*SAFE)
+    msg = seed_thread(fake_gmail)
+    seen = []
+    plan = iter([{}, {"confirm": 1}, {"confirm": 1}])
+
+    def ea(call):
+        if round_index(call) == 0:
+            step = next(plan)
+            extra = {"confirm_duplicate_of": step["confirm"]} if step else {}
+            return reply_call(msg, body="Version 2." if step else "Version 1.", **extra)
+        seen.append((last_result(call) or {}).get("result") or {})
+        return final("Done.")
+
+    scripted_llm.on("execution", ea)
+    run_turns(scripted_llm, ["reply v1", "send v2 now, even if it is a duplicate", "yes, I confirm: send v2"])
+    assert [r.get("status", "sent") for r in seen] == ["sent", "confirmation_required", "sent"]
+    assert len(fake_gmail.external_sends()) == 2
+    assert get_ledger().all()[-1].override_of == 1
+
+
 def test_exception_mid_send_is_unknown_not_retried_and_reported(set_flags, scripted_llm, fake_gmail):
     set_flags(*SAFE)
     msg = seed_thread(fake_gmail)

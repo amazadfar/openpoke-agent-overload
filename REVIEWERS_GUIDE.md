@@ -9,7 +9,7 @@
 - **Fixed and measured.** Nineteen flag-gated fixes. Compared with the same real model on the same scenarios against a fake Gmail, the fixes cut LLM calls by 38%, tokens by 49% and cost by 30%. They remove every 8-round-limit hit (110 → 0), halve interaction-agent calls per turn, and keep the agent roster flat as agents accumulate. Deterministic tests prove each mechanism, and with flags off a parity test proves the code is identical to upstream.
 - **Not solved.**
   - **Routing.** The model still re-uses existing agents for unrelated threads: merge decisions fell from 40 to 20, so the hard gate fails. Those agents still wrote to the right person and thread.
-  - **Sends.** Both variants sent emails when only a draft was asked for. In each variant, one such send was followed by a duplicate.
+  - **Sends.** Both variants sent emails when only a draft was asked for, and in each variant one such send was followed by a duplicate. The fixed variant's duplicate got through a duplicate-override rule that trusted agent-started turns. **That rule is fixed** after the re-run: an L2 regression test covers it, plus a post-fix targeted re-run.
   - **What would block both.** The off-by-default `SEND_GATE`.
 
 ## The problem in three classes
@@ -19,6 +19,8 @@
 3. **Side-effect safety.** Sends have no identity, so nothing prevents duplicates. Timeouts report emails that did go out as `[FAILED]`. Confirm-before-send exists only in prompt text.
 
 ## Results
+
+Commit hashes cited in docs/ and evals/results/ (e.g. 9eeec00, c98557b) refer to the development branch the work was done on; the submitted history squashes that work into four commits on top of the baseline, so those hashes don't resolve in this repository.
 
 **Setup.** Model `openai/gpt-6-luna`, a fake Gmail and a fictional brokerage inbox. 27 runs per variant: 7 scenarios × 3 repetitions, with S4 at 10, 200 and 500 agents. These are re-run numbers, scored with metrics v2. All values are MEASURED. Sources: [`evals/results/summary.md`](evals/results/summary.md), itemised in [`audit.md`](evals/results/audit.md).
 
@@ -37,7 +39,7 @@
 | Wrong-target writes / scored writes | 0 / 70 | 1 / 68 (see below) |
 | **Found** | | |
 | Unrequested sends (a draft was asked for, an email was sent) | 4 | 6 |
-| Duplicate emails, both following an unrequested send | 1 | 1 (hard gate "0 duplicates" **failed**) |
+| Duplicate emails, both following an unrequested send | 1 | 1 (hard gate "0 duplicates" **failed**; the override path is now fixed, see below) |
 
 **Fixed.**
 - **Waste and cost:** see the table.
@@ -46,18 +48,20 @@
 - **Retry duplicates:** a send whose response was lost is recorded as `unknown` and never retried. The live N is small, and the deterministic tests carry the weight.
 
 **Not fixed: routing.**
-- **What happens.** The IA re-uses an existing agent's **exact name** for unrelated work. Every merge decision was routed that way.
-  - Its upstream system prompt encourages this ("prefer … an existing agent … even if the name is unrelated").
-  - Code deliberately never auto-routes on fuzzy evidence.
-- **Consequence.** Re-used agents still wrote to the right person and thread.
-  - **Baseline:** 0 wrong-target writes.
-  - **Fixed:** the one wrong-target write was a Priya draft for "Make it shorter.". The IA only called `wait` at that step and dispatched the revision during the next one, so the step-based metric charges the draft to the wrong step.
+- **What happens.** The IA re-uses an existing agent's **exact name** for unrelated work, which its upstream system prompt encourages ("prefer … an existing agent … even if the name is unrelated"). Every merge decision was routed that way. Code deliberately never auto-routes on fuzzy evidence.
+- **Consequence.** Re-used agents still wrote to the right person and thread. The one fixed wrong-target write was a correct Priya draft for "Make it shorter.": the IA only called `wait` at that step and dispatched the revision in the next one, so the step-based metric charges it to that step.
 
 **Found: unrequested sends.** This happened in both variants: a draft was asked for and an email was sent, to the correct recipient, with no confirmation. Both re-run duplicates followed one, when the user later said "send the draft":
 - **Baseline:** nothing stopped the second email.
-- **Fixed:** the ledger blocked it as a near-duplicate. Then, in a follow-up turn started by an agent (no user message in between), the execution agent retried with `confirm_duplicate_of`. The ledger accepts that override because the chain began with a user message.
+- **Fixed:** the ledger blocked it as a near-duplicate. Then, in a follow-up turn started by an agent (no user message in between), the execution agent retried with `confirm_duplicate_of`. The ledger accepted that override because the chain began with a user message.
 
-`SEND_GATE` blocks both, because every send needs a code the user types. Leaving it off by default is a product decision.
+**Fixed after the re-run** (commit "Fix: duplicate override requires a fresh user turn").
+- **New rule.** An override is accepted only in a turn started by a user message, against a record from an earlier turn, and only after the block was reported to an earlier turn. Neither an agent-started follow-up nor the run that received the block can confirm it, so the IA has to ask the user. The cost: one extra confirmation when a user asks up front to resend.
+- **Evidence.**
+  - L2 tests: `test_override_from_agent_follow_up_turn_needs_a_fresh_user_turn` (the re-run case), `test_agent_cannot_confirm_its_own_block_within_the_users_turn` and `test_up_front_resend_request_needs_one_more_confirmation`. Each fails before its part of the fix and passes after.
+  - Post-fix targeted re-run of S4: 9 runs, 532 LLM calls, $0.115: 0 duplicate sends, 0 unrequested sends, 0 blocked sends. No block occurred, so the override path was not exercised live; this run shows no regression, not the fix itself. It was made before the same-run tightening, which needs a block to matter ([`summary.md`](evals/results/summary.md)).
+
+`SEND_GATE` blocks the unrequested sends and both duplicates, because every send needs a code the user types. Leaving it off by default is a product decision.
 
 ## How to run
 
@@ -101,13 +105,10 @@ Everything is flag-gated, for two reasons:
 1. **Exact-name routes should yield to conflicting identity evidence.**
    - **Evidence.** In S3 (all 3 fixed re-run repetitions), the client Sarah's agent ("Sarah Chen water stain email") was re-used for the Harbor Law counsel's task. In S4, the seeded near-miss agent "Priya Patel - add son as driver" received Priya's renewal work.
    - **Proposal.** The resolver's step 1 routes exact names before its counterparty veto (disjoint counterparty emails) runs. Applying the veto there would return `ask` when the instruction names a counterparty the agent has never dealt with.
-2. **Accept duplicate overrides only in a turn the user started.**
-   - **Evidence.** The fixed re-run's duplicate came from an override retried in an agent-started follow-up turn.
-   - **Proposal.** `server/services/safety/ledger.py:238` accepts any user-*rooted* chain. Checking the current turn's origin instead is a one-line change. It was not made in this pass, which allowed no behaviour changes.
-3. **Domain identifiers** (policy and claim numbers such as `CL-2291`, `AU-77120`) as strong identifiers alongside Gmail ids.
-4. **Entity-keyed agents.** See [`docs/overload/04_FUTURE_ARCHITECTURE.md`](docs/overload/04_FUTURE_ARCHITECTURE.md), including what keys don't solve.
-5. **The IA's "reuse even if unrelated" prompt policy,** evaluated on held-out scenarios, never the reported ones.
-6. **A send-policy decision,** given the unrequested sends: the full gate, drafts-only for reply and forward, or a gate on scheduled sends only.
+2. **Domain identifiers** (policy and claim numbers such as `CL-2291`, `AU-77120`) as strong identifiers alongside Gmail ids.
+3. **Entity-keyed agents.** See [`docs/overload/04_FUTURE_ARCHITECTURE.md`](docs/overload/04_FUTURE_ARCHITECTURE.md), including what keys don't solve.
+4. **The IA's "reuse even if unrelated" prompt policy,** evaluated on held-out scenarios, never the reported ones.
+5. **A send-policy decision,** given the unrequested sends: the full gate, drafts-only for reply and forward, or a gate on scheduled sends only.
 
 ## Limitations
 

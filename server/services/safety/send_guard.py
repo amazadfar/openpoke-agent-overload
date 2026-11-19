@@ -60,7 +60,8 @@ def _refusal(kind: str, previous: ledger_mod.SideEffect, override_rejected: bool
         message = ("A similar email to the same recipients/thread was sent or attempted in the last 24 hours (previous record below). "
                    "It was NOT sent. Ask Poke to confirm with the user; then retry with confirm_duplicate_of=<previous id>.")
     if override_rejected:
-        message += " (confirm_duplicate_of is only accepted for user-originated requests.)"
+        message += (" (confirm_duplicate_of is only accepted for user-originated requests: in a turn started by a new user "
+                    "message that confirms the resend, after the earlier send. Ask Poke to ask the user.)")
     return {"status": kind, "previous": previous.public(), "message": message}
 
 
@@ -99,16 +100,19 @@ def _prepare(tool_name: str, action: str, args: Dict[str, Any], agent_name: str,
         telemetry.emit("side_effect", action=action, status="not_started", blocked_reason="ledger_unavailable", ledger_id=None)
         return {"status": "not_started", "error": f"Send not attempted: {exc}"}
     if isinstance(begin, ledger_mod.Blocked):
-        _emit(action, intent, "blocked", ledger_id=begin.previous.id, blocked_reason="exact_duplicate")
+        _emit(action, intent, "blocked", ledger_id=begin.previous.id, blocked_reason="exact_duplicate",
+              override_rejected=begin.override_rejected)
         return _refusal("blocked_duplicate", begin.previous, begin.override_rejected)
     if isinstance(begin, ledger_mod.ConfirmationRequired):
-        _emit(action, intent, "blocked", ledger_id=begin.previous.id, blocked_reason="near_duplicate")
+        _emit(action, intent, "blocked", ledger_id=begin.previous.id, blocked_reason="near_duplicate",
+              override_rejected=begin.override_rejected)
         return _refusal("confirmation_required", begin.previous, begin.override_rejected)
     _emit(action, intent, "pending", ledger_id=begin.record_id)
     return begin.record_id
 
 
-def _emit(action: str, intent: ledger_mod.SendIntent, status: str, *, ledger_id: Optional[int], blocked_reason: Optional[str] = None) -> None:
+def _emit(action: str, intent: ledger_mod.SendIntent, status: str, *, ledger_id: Optional[int], blocked_reason: Optional[str] = None,
+          override_rejected: Optional[bool] = None) -> None:
     nk = ledger_mod.near_key(intent)
     telemetry.emit(
         "side_effect",
@@ -118,6 +122,7 @@ def _emit(action: str, intent: ledger_mod.SendIntent, status: str, *, ledger_id:
         status=status,
         ledger_id=ledger_id,
         blocked_reason=blocked_reason,
+        override_rejected=override_rejected,  # a confirm_duplicate_of the turn rule refused (fresh user turn needed)
     )
 
 

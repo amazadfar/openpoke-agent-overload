@@ -13,13 +13,19 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from server import flags  # noqa: E402  (flags.py has no import-time side effects beyond server's)
+# Importing `server` opens the upstream stores at import time (e.g. TriggerStore -> triggers.db),
+# so this parent process must never resolve the real server/data. The pytest children are
+# isolated by tests/conftest.py, which sets its own temporary OPENPOKE_DATA_DIR.
+os.environ["OPENPOKE_DATA_DIR"] = tempfile.mkdtemp(prefix="openpoke-flag-matrix-")
+
+from server import flags  # noqa: E402
 
 
 def closure(name: str) -> list:
@@ -46,9 +52,13 @@ def configurations():
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default=None)
+    parser.add_argument("--require", default=None, help="only configurations that enable this flag (e.g. SEND_LEDGER)")
     args = parser.parse_args()
     rows = ["| Configuration | Flags | Result | Wall time |", "|---|---|---|---|"]
     for label, overrides in configurations():
+        enabled = overrides["OPENPOKE_FIXES"]
+        if args.require and not (enabled == "all" or args.require in enabled.split(",")):
+            continue
         env = {k: v for k, v in os.environ.items() if not k.startswith("OPENPOKE_FIX")}
         env.update(overrides)
         started = time.monotonic()

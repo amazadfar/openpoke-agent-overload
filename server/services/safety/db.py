@@ -43,6 +43,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_side_effects_active_fp
 CREATE INDEX IF NOT EXISTS ix_side_effects_near ON side_effects(near_key, created_at);
 CREATE INDEX IF NOT EXISTS ix_side_effects_run ON side_effects(run_id);
 
+-- Which turns were told that a send was blocked as a duplicate of side_effects.id. An override
+-- (confirm_duplicate_of) is accepted only in a LATER user turn than one of these (the user was asked).
+CREATE TABLE IF NOT EXISTS side_effect_blocks (
+  previous_id INTEGER NOT NULL REFERENCES side_effects(id),
+  turn_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (previous_id, turn_id)
+);
+
 CREATE TABLE IF NOT EXISTS drafts_meta (
   draft_id TEXT PRIMARY KEY, thread_id TEXT, recipients TEXT NOT NULL,
   subject_norm TEXT, body_sha256 TEXT, agent TEXT, created_at TEXT NOT NULL

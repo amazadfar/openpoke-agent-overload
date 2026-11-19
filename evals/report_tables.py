@@ -1,7 +1,8 @@
 """Build every committed evaluation artifact from raw run files (one command; no hand-typed numbers).
 
     python -m evals.report_tables --original <dir with baseline/ phase1/ fixed/ cross_model/> \
-        --rerun <dir with *_rerun-baseline.json and *_rerun-fixed.json> --out evals/results
+        --rerun <dir with *_rerun-baseline.json[.gz] and *_rerun-fixed.json[.gz]> \
+        --postfix <dir with *_postfix-fixed.json[.gz]> --out evals/results
 
 Writes to ``--out``:
 - ``summary.md``: run sets, the headline comparison (re-run, metrics v2), original runs
@@ -26,6 +27,13 @@ from . import metrics
 
 GATE_SCENARIOS = ["S1", "S2", "S3", "S4@10", "S4@200", "S5", "S9"]
 
+OVERRIDE_FIX_NOTE = (
+    "**Note (fixed after this run).** This duplicate went out through `confirm_duplicate_of` in a follow-up turn started "
+    "by an agent result (origin `agent`), with no new user message. The ledger then accepted overrides from any user-rooted "
+    "chain. Commit \"Fix: duplicate override requires a fresh user turn\" accepts an override only from a turn started by a "
+    "user message, against a record from an earlier turn, after the block was reported to an earlier turn. Regression test: `tests/mechanism/test_safety_fixes.py::"
+    "test_override_from_agent_follow_up_turn_needs_a_fresh_user_turn`. Live check: see the post-fix section.")
+
 
 # ------------------------------------------------------------------ loading
 def _read(path: Path) -> Dict[str, Any]:
@@ -39,7 +47,8 @@ def _latest(directory: Path, pattern: str) -> Optional[Path]:
     return files[-1] if files else None
 
 
-def load_run_sets(original: Optional[Path], rerun: Optional[Path]) -> Dict[Tuple[str, str], Dict[str, Any]]:
+def load_run_sets(original: Optional[Path], rerun: Optional[Path],
+                  postfix: Optional[Path] = None) -> Dict[Tuple[str, str], Dict[str, Any]]:
     sets: Dict[Tuple[str, str], Dict[str, Any]] = {}
     if original:
         for variant in ("baseline", "phase1", "fixed", "cross_model"):
@@ -51,7 +60,23 @@ def load_run_sets(original: Optional[Path], rerun: Optional[Path]) -> Dict[Tuple
             path = _latest(rerun, f"*_rerun-{variant}.json*")
             if path:
                 sets[("rerun", variant)] = {**_read(path), "_file": path.name}
+    if postfix:
+        path = _latest(postfix, "*_postfix-fixed.json*")
+        if path:
+            sets[("postfix", "fixed")] = {**_read(path), "_file": path.name}
     return sets
+
+
+def override_rejections(run: Dict[str, Any]) -> Optional[int]:
+    """Blocked sends whose confirm_duplicate_of the turn rule refused (None: not recorded by that build)."""
+    blocked = [e for e in run.get("events", []) if e.get("event") == "side_effect" and e.get("status") == "blocked"]
+    if not any("override_rejected" in e for e in blocked):
+        return None if blocked else 0
+    return sum(1 for e in blocked if e.get("override_rejected"))
+
+
+def blocked_sends(run: Dict[str, Any]) -> int:
+    return sum(1 for e in run.get("events", []) if e.get("event") == "side_effect" and e.get("status") == "blocked")
 
 
 def _runs(data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -251,11 +276,33 @@ def render_summary(sets, summaries) -> str:
         s8 = s2.get("S8") or {}
         row = [s8.get("fault_fired_runs", 0), s8.get("repetitions", 0), s8.get("duplicate_sends_fault_fired", 0),
                _total(s2, "duplicate_sends_total"), _total(s2, "unrequested_sends_total")]
-        out.append(f"| {runset} | {variant} | {row[0]} of {row[1]} | {row[2]} | {row[3]} | {row[4]} |")
-        if variant in ("baseline", "fixed"):
+        s8_cells = f"{row[0]} of {row[1]} | {row[2]}" if s8 else "not run | not run"
+        out.append(f"| {runset} | {variant} | {s8_cells} | {row[3]} | {row[4]} |")
+        if runset in ("original", "rerun") and variant in ("baseline", "fixed"):
             pooled[variant] = [a + b for a, b in zip(pooled.get(variant, [0] * 5), row)]
     for variant, row in pooled.items():
         out.append(f"| original + rerun | {variant} | {row[0]} of {row[1]} | {row[2]} | {row[3]} | {row[4]} |")
+
+    if ("postfix", "fixed") in sets:
+        data = sets[("postfix", "fixed")]
+        out += ["", "## Post-fix targeted re-run (S4, fixed variant)", "",
+                f"Run after the override fix (commit `{data.get('git_commit') or 'n/a'}`, \"Fix: duplicate override requires a fresh "
+                "user turn\"): S4 at N = 10, 200 and 500, 3 repetitions each, same model and fake. Compared with the S4 runs of "
+                "the re-run (before the fix). *Override attempts rejected* counts blocked sends whose `confirm_duplicate_of` the "
+                "new turn rule refused; the pre-fix build did not record this field.", "",
+                "| Run set | Scenario | Runs | Duplicate sends | Unrequested sends | Blocked sends | Override attempts rejected | Merge decisions |",
+                "|---|---|---|---|---|---|---|---|"]
+        for runset_key in (("rerun", "fixed"), ("postfix", "fixed")):
+            if runset_key not in sets:
+                continue
+            runs = [r for r in _runs(sets[runset_key]) if str(r["scenario"]).startswith("S4")]
+            for scenario in sorted({r["scenario"] for r in runs}, key=lambda x: int(x.split("@")[1])):
+                rs = [r for r in runs if r["scenario"] == scenario]
+                rejections = [override_rejections(r) for r in rs]
+                rej = "not recorded" if any(x is None for x in rejections) else str(sum(rejections))
+                out.append(f"| {runset_key[0]} | {scenario} | {len(rs)} | {sum(metrics.duplicate_sends(r) for r in rs)} | "
+                           f"{sum(len(metrics.unrequested_sends(r)) for r in rs)} | {sum(blocked_sends(r) for r in rs)} | {rej} | "
+                           f"{sum(metrics.routing_v2(r)['merge_decisions'] for r in rs)} |")
 
     out += ["", "## Original runs: metric v1 vs v2 (same raw data)", "",
             "| Variant | v1 false-merge runs / labelled | v2 false-merge runs / labelled | v2 merge decisions | v2 ambiguous runs | v2 wrong-target writes / scored | v2 unrequested sends |",
@@ -326,11 +373,18 @@ def render_audit(sets) -> str:
                     "| Scenario | Rep | Step | Agent | Gold of this run | Already owned |", "|---|---|---|---|---|---|"]
             out += [f"| {m['scenario']} | {m['rep']} | {m['step']} | {m['agent']} | {m['gold']} | {', '.join(m['already_owned'])} |" for m in merges]
             out.append("")
+        origin_of = {e["run_id"]: e.get("origin") for r in runs for e in r.get("events", []) if e.get("event") == "run_start"}
+        for d in duplicates:
+            d["turn_origin"] = origin_of.get(d.get("run_id"), "n/a")
+            d["dup_of"] = f"seq {d['duplicate_of_seq']}; sent from a turn of origin {d['turn_origin']}"
+        if duplicates and runset == "rerun" and variant == "fixed":
+            out += [OVERRIDE_FIX_NOTE, ""]
         for title, items, extra in (("Wrong-target writes", wrong, "targets"), ("Unrequested sends", unrequested, None),
-                                    ("Duplicate sends", duplicates, "duplicate_of_seq")):
+                                    ("Duplicate sends", duplicates, "dup_of")):
             if not items:
                 continue
-            out += [f"**{title}:**", "", "| Scenario | Rep | Step | Agent | Action | Thread | Recipients | " + (extra or "") + " |",
+            out += [f"**{title}:**", "", "| Scenario | Rep | Step | Agent | Action | Thread | Recipients | "
+                    + {"targets": "Gold targets", "dup_of": "Duplicate of / turn origin"}.get(extra, extra or "") + " |",
                     "|---|---|---|---|---|---|---|" + ("---|" if extra else "|")]
             for i in items:
                 out.append(f"| {i['scenario']} | {i['rep']} | {i['step']} | {i.get('agent') or ''} | {i['action']} | "
@@ -352,9 +406,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--original", default=None, help="dir with baseline/ phase1/ fixed/ cross_model/ (json or json.gz)")
     parser.add_argument("--rerun", default=None, help="dir with *_rerun-baseline.json and *_rerun-fixed.json")
+    parser.add_argument("--postfix", default=None, help="dir with *_postfix-fixed.json (targeted re-run after the override fix)")
     parser.add_argument("--out", default=str(Path(__file__).resolve().parent / "results"))
     args = parser.parse_args()
-    sets = load_run_sets(Path(args.original) if args.original else None, Path(args.rerun) if args.rerun else None)
+    sets = load_run_sets(Path(args.original) if args.original else None, Path(args.rerun) if args.rerun else None,
+                         Path(args.postfix) if args.postfix else None)
     summaries = {}
     for (runset, variant), data in sets.items():
         for version in ((1, 2) if runset == "original" else (2,)):

@@ -17,7 +17,13 @@ Invariants enforced here:
   return ConfirmationRequired instead of sending.
 
 ``confirm_duplicate_of`` is DUPLICATE protection, not authorization: it is only
-honoured in a user-rooted turn chain. Human authorization is the send gate (1.10).
+honoured in a turn started by a user message (origin "user", not merely a
+user-rooted chain), against a record created in an earlier turn, and only after
+a block for that record was reported to an EARLIER turn (``side_effect_blocks``).
+So neither an agent-started follow-up turn nor the run that just received the
+block can confirm a duplicate on the user's behalf; an up-front "resend even if
+it is a duplicate" costs one extra confirmation.
+Human authorization is the send gate (1.10).
 """
 
 from __future__ import annotations
@@ -234,9 +240,29 @@ class SideEffectLedger:
     def begin(self, intent: SendIntent, *, confirm_duplicate_of: Optional[int] = None) -> BeginResult:
         turn = current_turn()
         run = current_run()
-        # Overrides are duplicate protection only; honour them only in user-rooted chains.
-        override_allowed = confirm_duplicate_of is not None and turn.root_origin == "user"
-        rejected = confirm_duplicate_of is not None and not override_allowed
+        # Overrides are duplicate protection only. Honour one only from a turn started by a
+        # user message, against a record from an EARLIER turn, and only after a block for that
+        # record was reported to an EARLIER turn. A follow-up turn started by an agent result
+        # (origin "agent", even in a user-rooted chain) and the run that just received the
+        # block both get ConfirmationRequired/Blocked back, so the IA has to ask the user.
+        fresh_user_turn = turn.origin == "user"
+
+        def turn_rule_ok(conn: sqlite3.Connection, previous: SideEffect) -> bool:
+            if not fresh_user_turn or previous.turn_id == turn.turn_id:
+                return False
+            return conn.execute(
+                "SELECT 1 FROM side_effect_blocks WHERE previous_id = ? AND turn_id != ? LIMIT 1",
+                (previous.id, turn.turn_id),
+            ).fetchone() is not None
+
+        def refuse(conn: sqlite3.Connection, previous: SideEffect, kind: type) -> BeginResult:
+            rejected = confirm_duplicate_of is not None and not turn_rule_ok(conn, previous)
+            conn.execute(  # this turn has now been told; a later user turn may confirm
+                "INSERT OR IGNORE INTO side_effect_blocks (previous_id, turn_id, created_at) VALUES (?, ?, ?)",
+                (previous.id, turn.turn_id, now.isoformat(timespec="microseconds")),
+            )
+            return kind(previous, override_rejected=rejected)
+
         fp = fingerprint(intent)
         nk = near_key(intent)
         now = clock.now()
@@ -249,8 +275,8 @@ class SideEffectLedger:
             row_fp, override_of = fp, None
             if exact is not None:
                 previous = SideEffect.from_row(exact)
-                if not (override_allowed and confirm_duplicate_of == previous.id):
-                    return Blocked(previous, override_rejected=rejected)
+                if not (confirm_duplicate_of == previous.id and turn_rule_ok(conn, previous)):
+                    return refuse(conn, previous, Blocked)
                 row_fp, override_of = f"{fp}#override:{previous.id}", previous.id
             elif nk is not None:
                 near = conn.execute(
@@ -260,8 +286,8 @@ class SideEffectLedger:
                 ).fetchone()
                 if near is not None:
                     previous = SideEffect.from_row(near)
-                    if not (override_allowed and confirm_duplicate_of == previous.id):
-                        return ConfirmationRequired(previous, override_rejected=rejected)
+                    if not (confirm_duplicate_of == previous.id and turn_rule_ok(conn, previous)):
+                        return refuse(conn, previous, ConfirmationRequired)
                     override_of = previous.id
             trigger_id, scheduled_for = (run.trigger_occurrence if run and run.trigger_occurrence else (None, None))
             stamp = now.isoformat(timespec="microseconds")
@@ -279,7 +305,7 @@ class SideEffectLedger:
                 existing = conn.execute(
                     "SELECT * FROM side_effects WHERE fingerprint = ? AND status IN ('pending','sent','unknown')", (row_fp,)
                 ).fetchone()
-                return Blocked(SideEffect.from_row(existing))
+                return refuse(conn, SideEffect.from_row(existing), Blocked)
             return Started(record_id=int(cursor.lastrowid), override_of=override_of)
 
         return db.write(operation)

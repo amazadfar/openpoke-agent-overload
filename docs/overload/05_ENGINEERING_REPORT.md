@@ -49,13 +49,16 @@ A parity test against the `baseline-pre-fixes` tag proves that with every flag o
   - those agents still wrote to the right person and thread: 0 wrong-target writes in the baseline, and in the fixed variant 1, a deferred Priya revision charged to the next step (03).
 - **Unrequested sends** were found in both variants: a draft was asked for and an email was sent, to the correct recipient, with no confirmation.
   - Both re-run duplicates followed one of them, when the user later asked to send the draft.
-  - With the fixes, the ledger blocked the second send. An agent-started follow-up turn then overrode the block with `confirm_duplicate_of`, which the override rule accepts for any user-rooted chain.
-  - `SEND_GATE` blocks both.
+  - With the fixes, the ledger blocked the second send. An agent-started follow-up turn then overrode the block with `confirm_duplicate_of`, which the override rule then accepted for any user-rooted chain.
+  - **That rule is fixed after the re-run** (commit "Fix: duplicate override requires a fresh user turn"). An override is now accepted only in a turn started by a user message, against a record from an earlier turn, and only after a block for that record was reported to an earlier turn, so neither an agent-started follow-up nor the run that just received the block can confirm it; the accepted cost is one extra confirmation when a user asks up front to resend. Evidence:
+    - L2 tests for the re-run sequence, the same-run self-confirm and the up-front cost, each failing before its part of the fix;
+    - a post-fix targeted re-run of S4: 9 runs, 532 LLM calls, $0.115: 0 duplicate sends, 0 unrequested sends, 0 blocked sends. No block occurred, so the override path was not exercised live; this run shows no regression, not the fix itself (03).
+  - `SEND_GATE` blocks the unrequested sends and both duplicates.
 - **S8 caveat.** The injected fault fires only when the model picks the reply action. Over both run sets, it fired in 3 of 6 baseline runs (2 duplicates) and 2 of 6 fixed runs (0 duplicates). The live evidence for the retry case is thin; the deterministic L2 tests carry it.
 
 **Corrections to earlier claims** (in the first version of this report):
 - **"Duplicate emails sent: 2 → 0" and "it removed every duplicate send"** came from the original runs.
-  - **What the re-run shows:** 1 → 1. The fixed variant's duplicate came through the override path after an unrequested send.
+  - **What the re-run shows:** 1 → 1. The fixed variant's duplicate came through the override path after an unrequested send. That path is now fixed (above).
   - **What still holds:** the retry case (S8) has 0 duplicates in the fixed runs.
 - **"False merges 46 of 75 → 32 of 67; S1: 9/15 → 0/15"** used metric v1.
   - **What v1 got wrong:** it counted every later run of a merged agent, including runs back on its own thread.
@@ -118,19 +121,20 @@ OPENPOKE_FIXES=all OPENPOKE_FIX_SEND_GATE=1 python -m pytest -q tests  # every f
 python tests/run_flag_matrix.py                                        # each flag alone + prerequisites, all, all + gate (table in 03)
 ```
 
-**Final counts.** Repository, final tree, parity included. MEASURED:
+**Final counts.** Repository at the final tree (after the override fix), parity included. MEASURED:
 
 | Configuration | Python 3.13 | Python 3.10 |
 |---|---|---|
-| Flags off | 240 passed, 1 xfailed | 240 passed, 1 xfailed |
-| `OPENPOKE_FIXES=all` | 240 passed, 1 xfailed | 240 passed, 1 xfailed |
-| `all` + `SEND_GATE` | 240 passed, 1 xfailed | 240 passed, 1 xfailed |
-| Flag matrix: 22 configurations, export without git, so parity is skipped | 238 passed, 2 skipped, 1 xfailed in each | the same in 21 of 22; one run printed no summary, and 3 re-runs passed (03) |
+| Flags off | 244 passed, 1 xfailed | 244 passed, 1 xfailed |
+| `OPENPOKE_FIXES=all` | 244 passed, 1 xfailed | 244 passed, 1 xfailed |
+| `all` + `SEND_GATE` | 244 passed, 1 xfailed | 244 passed, 1 xfailed |
+| The 5 matrix configurations that enable `SEND_LEDGER`, re-run after the fix (repository, parity included) | 244 passed, 1 xfailed in each | not run |
+| Flag matrix: 22 configurations, before the override fix (`c98557b`); export without git, so parity is skipped | 238 passed, 2 skipped, 1 xfailed in each | the same in 21 of 22; one run printed no summary, and 3 re-runs passed (03) |
 | Watcher tests, 10 consecutive runs | 10/10 | 10/10 |
 
-- **Counts by layer.** 142 L1 unit tests, 97 L2 mechanism tests (including one strict xfail), and 2 parity tests.
+- **Counts by layer.** 143 L1 unit tests, 100 L2 mechanism tests (including one strict xfail), and 2 parity tests.
 - **The strict xfail** is the documented known limit: the 1.2 window alone forgets a draft older than K requests. The card-on variant of the same test passes.
-- **Parity** passes on both versions, and its negative control detects a one-word behaviour change.
+- **Parity** passes on both versions, and its negative control detects a one-word behaviour change. The override fix sits behind `SEND_LEDGER`, so flags-off behaviour is unchanged.
 - **Python support.**
   - The suite is verified on **3.10 and 3.13**; 3.11 and 3.12 were not run.
   - `pyproject.toml` keeps upstream's `requires-python >= 3.13`, which is the uv interpreter pin. The pip path (`server/requirements.txt` + `requirements-dev.txt`) is the 3.10 route.
@@ -161,7 +165,7 @@ See 03 for the full tables. All numbers are MEASURED from telemetry, provider us
 | Gate | Original runs (v1, as first published) | Re-run (v2) |
 |---|---|---|
 | P1: limit hits = 0 | PASS | PASS |
-| P1: duplicate sends = 0 (hard) | PASS (baseline 2 → 0) | **FAIL** (1 → 1; the override path after an unrequested send) |
+| P1: duplicate sends = 0 (hard) | PASS (baseline 2 → 0) | **FAIL** (1 → 1; the override path after an unrequested send, fixed afterwards) |
 | P1: IA calls per turn lower | PASS, every scenario | PASS, every scenario |
 | P1: EA prompt flat after K | PASS in L2 (`test_m2_journal_growth_flat_after_k`); L3 horizons are shorter than K | same |
 | P1: context_hit ≥ baseline | PASS with Phase 1 flags; **FAIL** with all fixes (S4@10 1.00 → 0.67) | **FAIL** (S1 1.00 → 0.83, S4@200 0.83 → 0.67) |
@@ -202,7 +206,7 @@ The context_hit misses are follow-up steps where the IA started no execution run
 - **Unrequested sends are not prevented without the gate.**
   - **Why they happen.** `gmail_reply_to_thread` (and forward) send immediately, and "draft first" exists only in prompt text.
   - **What was measured.** In both variants an agent sometimes replied when the user had asked for a draft: re-run 4 baseline and 6 fixed, all to the correct recipient. A later "send the draft" then produced a duplicate.
-  - **Duplicate overrides** are accepted from any user-rooted turn chain, including an agent-started follow-up turn (`ledger.py:238`).
+  - **Duplicate overrides** from agent-started turns, and from the run that received the block, are fixed. The cost: a user who asks up front to resend is asked once more.
 - **Near-duplicate sends** are caught only within 24 h, and only with the same thread and recipients (or the same message for forwards). A reworded email to a different thread is a new email.
 - **Trigger semantics after a crash** are at-most-once plus a report. A crash after the run finished but before its claim was marked done is reported as "interrupted", together with the ledger summary of what it did.
 - **The dispatch dedupe window is in memory.** After a restart only the ledger protects sends.
@@ -240,13 +244,15 @@ OPENPOKE_FIXES=all uv run python -m pytest -q tests
 uv run python tests/run_flag_matrix.py
 uv run python -m evals.run_live --variant baseline --label rerun-baseline --out evals/results/raw/rerun --scenarios all --include-optional-sizes --repetitions 3 --max-llm-calls 2500
 uv run python -m evals.run_live --variant fixed    --label rerun-fixed    --out evals/results/raw/rerun --scenarios all --include-optional-sizes --repetitions 3 --max-llm-calls 2500
-uv run python -m evals.report_tables --original <raw original dir> --rerun evals/results/raw/rerun --out evals/results
+uv run python -m evals.run_live --variant fixed --label postfix-fixed --out evals/results/raw/postfix --scenarios S4 --include-optional-sizes --repetitions 3 --max-llm-calls 1000
+uv run python -m evals.report_tables --original ../openpoke-eval-raw/20261119T204035Z/original \
+  --rerun ../openpoke-eval-raw/20261119T221148Z/rerun --postfix ../openpoke-eval-raw/20261119T223528Z/postfix --out evals/results
 uv run python -m evals.replay_queries <raw dirs>...   # old vs new fake-Gmail matcher on recorded queries
 ```
 
 **How the live runs here were executed.**
 - **From frozen exports.** Each ran from a `git archive` export of the commit named in 03, so ongoing edits could not change code mid-run. A `.env` copy was placed in the export for `OPENROUTER_API_KEY` and deleted afterwards. Composio is never used.
-- **Where the raw output goes.** Raw output is written to the git-ignored `evals/results/raw/`. The original raw runs are archived gzipped outside the repository, with SHA-256 checksums (03).
+- **Where the raw output goes.** Raw output is written to the git-ignored `evals/results/raw/`. All three raw run sets (original, re-run, post-fix) are archived gzipped outside the repository, with SHA-256 checksums (03).
 
 ## 9. Future work
 

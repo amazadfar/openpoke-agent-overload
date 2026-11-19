@@ -94,9 +94,10 @@ The counts come from `evals/results/audit.md` (metric v2). Everything below is a
    - **Evidence, S4.** The seeded near-miss agent "Priya Patel - add son as driver" received Priya's renewal work in 9 of 9 baseline and 5 of 9 fixed S4 repetitions of the re-run (original runs: 9 and 8). In one fixed re-run (S4@500 rep 0), the send step went to that agent: it wrote a new email to Priya and sent it, and the draft the user had reviewed was never sent.
    - **The gap.** The resolver's step 1 routes exact names unconditionally. Its counterparty veto (disjoint counterparty emails) runs only for identifier matches.
    - **Proposal.** Applying the veto to step 1 too would return `ask` when the instruction names a counterparty the agent has never dealt with. The trade-off is one extra IA round when the model is right.
-2. **Accept duplicate overrides only in a turn the user started.**
-   - **Evidence.** In the fixed re-run (S4@500 rep 2), the ledger blocked a near-duplicate send. An agent-started follow-up turn then retried it with `confirm_duplicate_of`, with no user message in between. The ledger accepted the override because the chain was user-*rooted* (`ledger.py:238`).
-   - **Proposal.** Checking the current turn's origin is a one-line change.
+2. **Duplicate overrides: done after the re-run.**
+   - **What was fixed.** The override path behind the fixed re-run's duplicate (S4@500 rep 2) was fixed by commit "Fix: duplicate override requires a fresh user turn", and so was the same-run self-confirm path.
+   - **The rule now.** An override needs a user-started turn later than the turn that was told about the block.
+   - **The accepted trade-off.** A user who asks up front to resend is asked once more.
 3. **Domain identifiers as strong identifiers.**
    - **Why.** Policy and claim numbers (`AU-77120`, `HO-48213`, `CL-2291`) are as identifying as thread ids in this domain, but the resolver only knows Gmail ids today.
    - **Proposal.** Add a small pattern set, configurable per deployment, to `ids.py`. Then "the CL-2291 task" would route by identity rather than by name.
