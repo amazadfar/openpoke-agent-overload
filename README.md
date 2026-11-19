@@ -28,12 +28,13 @@ OpenPoke is a simplified, open-source take on [Interaction Company’s](https://
    - Create an account at [openrouter.ai](https://openrouter.ai/)
    - Generate an API key
    - Replace `your_openrouter_api_key_here` with your actual key in `.env`
+   - Optionally set `OPENROUTER_MODEL` to a [model ID that supports tool calling](https://openrouter.ai/models?supported_parameters=tools). This setting applies to chat, execution, email search, summaries, and email classification. The default is `anthropic/claude-sonnet-4`.
    
    **Composio (Required for Gmail)**
    - Sign in at [composio.dev](https://composio.dev/)
-   - Create an API key
-   - Set up Gmail integration and get your auth config ID
-   - Replace `your_composio_api_key_here` and `your_gmail_auth_config_id_here` in `.env`
+   - Create a project API key. For a [scoped key](https://docs.composio.dev/reference/authenticating-to-composio/project-api-key-permissions), grant **Connected accounts** read and write access and **Tool execution (Legacy)** write access.
+   - Under **Auth Configs**, create a Gmail OAuth2 config using Composio-managed OAuth or your own Google OAuth client. Copy the config's `ac_...` ID.
+   - Replace `your_composio_api_key_here` and `your_gmail_auth_config_id_here` in `.env` with values from the same project
 4. **(Required) Create and activate a Python 3.10+ virtualenv:**
    ```bash
    # Ensure you're using Python 3.10+

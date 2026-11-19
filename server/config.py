@@ -30,6 +30,7 @@ _load_env_file()
 
 DEFAULT_APP_NAME = "OpenPoke Server"
 DEFAULT_APP_VERSION = "0.3.0"
+DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-4"
 
 
 def _env_int(name: str, fallback: int) -> int:
@@ -37,6 +38,10 @@ def _env_int(name: str, fallback: int) -> int:
         return int(os.getenv(name, str(fallback)))
     except (TypeError, ValueError):
         return fallback
+
+
+def _openrouter_model() -> str:
+    return os.getenv("OPENROUTER_MODEL", "").strip() or DEFAULT_OPENROUTER_MODEL
 
 
 class Settings(BaseModel):
@@ -51,11 +56,11 @@ class Settings(BaseModel):
     server_port: int = Field(default=_env_int("OPENPOKE_PORT", 8001))
 
     # LLM model selection
-    interaction_agent_model: str = Field(default="anthropic/claude-sonnet-4")
-    execution_agent_model: str = Field(default="anthropic/claude-sonnet-4")
-    execution_agent_search_model: str = Field(default="anthropic/claude-sonnet-4")
-    summarizer_model: str = Field(default="anthropic/claude-sonnet-4")
-    email_classifier_model: str = Field(default="anthropic/claude-sonnet-4")
+    interaction_agent_model: str = Field(default_factory=_openrouter_model)
+    execution_agent_model: str = Field(default_factory=_openrouter_model)
+    execution_agent_search_model: str = Field(default_factory=_openrouter_model)
+    summarizer_model: str = Field(default_factory=_openrouter_model)
+    email_classifier_model: str = Field(default_factory=_openrouter_model)
 
     # Credentials / integrations
     openrouter_api_key: Optional[str] = Field(default=os.getenv("OPENROUTER_API_KEY"))

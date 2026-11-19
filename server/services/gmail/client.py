@@ -213,11 +213,10 @@ def initiate_connect(payload: GmailConnectPayload, settings: Settings) -> JSONRe
         )
 
     user_id = payload.user_id or f"web-{os.getpid()}"
-    _set_active_gmail_user_id(user_id)
     _clear_cached_profile(user_id)
     try:
         client = _get_composio_client(settings)
-        req = client.connected_accounts.initiate(user_id=user_id, auth_config_id=auth_config_id)
+        req = client.connected_accounts.link(user_id=user_id, auth_config_id=auth_config_id)
         data = {
             "ok": True,
             "redirect_url": getattr(req, "redirect_url", None) or getattr(req, "redirectUrl", None),
@@ -226,6 +225,17 @@ def initiate_connect(payload: GmailConnectPayload, settings: Settings) -> JSONRe
         }
         return JSONResponse(data)
     except Exception as exc:
+        if getattr(exc, "status_code", None) == status.HTTP_403_FORBIDDEN:
+            reason = str(exc)
+            api_key = (settings.composio_api_key or "").strip()
+            if api_key:
+                reason = reason.replace(api_key, "[redacted]")
+            reason = " ".join(reason.split())[:500]
+            logger.warning("Composio denied Gmail connection (HTTP 403). %s", reason)
+            return error_response(
+                f"Composio denied Gmail connection (HTTP 403). {reason}".rstrip(),
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         logger.exception("gmail connect failed", extra={"user_id": user_id})
         return error_response(
             "Failed to initiate Gmail connect",
@@ -258,14 +268,15 @@ def fetch_status(payload: GmailStatusPayload) -> JSONResponse:
                     account = None
         if account is None and user_id:
             try:
-                items = client.connected_accounts.list(
+                result = client.connected_accounts.list(
                     user_ids=[user_id], toolkit_slugs=["GMAIL"], statuses=["ACTIVE"]
                 )
-                data = getattr(items, "data", None)
-                if data is None and isinstance(items, dict):
-                    data = items.get("data")
-                if data:
-                    account = data[0]
+                if isinstance(result, dict):
+                    accounts = result.get("items") or result.get("data")
+                else:
+                    accounts = getattr(result, "items", None) or getattr(result, "data", None)
+                if accounts:
+                    account = accounts[0]
             except Exception:
                 account = None
         status_value = None
@@ -300,10 +311,9 @@ def fetch_status(payload: GmailStatusPayload) -> JSONResponse:
                     profile_source = "fetched"
             if profile and not email:
                 email = _extract_email(profile)
+            _set_active_gmail_user_id(user_id)
         elif user_id:
             _clear_cached_profile(user_id)
-
-        _set_active_gmail_user_id(user_id)
 
         return JSONResponse(
             {

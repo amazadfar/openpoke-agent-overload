@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from ..config import get_settings
+from ..logging_config import logger
 
 OpenRouterBaseURL = "https://openrouter.ai/api/v1"
 
@@ -75,17 +76,26 @@ async def request_chat_completion(
                 json=payload,
                 timeout=60.0,  # Set reasonable timeout instead of None
             )
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                _handle_response_error(exc)
-            return response.json()
-        except httpx.HTTPStatusError as exc:  # pragma: no cover - handled above
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error("OpenRouter request failed for model %s (HTTP %s)", model, exc.response.status_code)
             _handle_response_error(exc)
         except httpx.HTTPError as exc:
+            logger.error("OpenRouter request failed for model %s (%s)", model, type(exc).__name__)
             raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
-    raise OpenRouterError("OpenRouter request failed: unknown error")
+        result = response.json()
+        if isinstance(result, dict) and result.get("error"):
+            error = result["error"]
+            code = error.get("code") if isinstance(error, dict) else None
+            logger.error(
+                "OpenRouter returned an error for model %s (HTTP %s, error code %s)",
+                model,
+                response.status_code,
+                code if isinstance(code, int) else "unknown",
+            )
+            raise OpenRouterError("OpenRouter returned an error in the completion response")
+        return result
 
 
 __all__ = ["OpenRouterError", "request_chat_completion", "OpenRouterBaseURL"]
