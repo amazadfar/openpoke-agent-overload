@@ -1,0 +1,77 @@
+{
+  "id": "S4",
+  "title": "Roster sweep",
+  "layer": "L3",
+  "stresses": [
+    "M1 cost and accuracy vs N"
+  ],
+  "sizes": [
+    10,
+    200
+  ],
+  "optional_sizes": [
+    500
+  ],
+  "gold_threads": {
+    "priya_renewal": {
+      "thread_id": "18c1a00000000001",
+      "counterparties": [
+        "priya.patel@example.com"
+      ]
+    },
+    "sarah_counsel": {
+      "thread_id": "18c1a00000000006",
+      "counterparties": [
+        "claims@northline.example",
+        "s.chen@harborlaw.example"
+      ]
+    },
+    "elena_umbrella": {
+      "thread_id": "18c1a00000000017",
+      "counterparties": [
+        "elena.rossi@example.com"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "seed_agents": {
+        "count": "$N",
+        "near_misses": true
+      }
+    },
+    {
+      "user": "Draft a reply to Priya Patel about her auto renewal. Explain why the premium went up and mention the telematics discount the carrier offers.",
+      "gold_thread": "priya_renewal"
+    },
+    {
+      "user": "Make it shorter.",
+      "gold_thread": "priya_renewal",
+      "required_ids": [
+        "$draft:priya_renewal"
+      ]
+    },
+    {
+      "user": "Separately, what's the latest on claim CL-2291?",
+      "gold_thread": "sarah_counsel"
+    },
+    {
+      "user": "Also, did Elena Rossi ever get an answer about her umbrella policy question?",
+      "gold_thread": "elena_umbrella"
+    },
+    {
+      "user": "OK, send the Priya draft.",
+      "gold_thread": "priya_renewal",
+      "required_ids": [
+        "$draft:priya_renewal"
+      ],
+      "expect_side_effects": [
+        "GMAIL_SEND_DRAFT"
+      ],
+      "allowed_side_effects": [
+        "GMAIL_SEND_DRAFT",
+        "GMAIL_REPLY_TO_THREAD"
+      ]
+    }
+  ]
+}

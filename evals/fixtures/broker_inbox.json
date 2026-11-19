@@ -1,0 +1,715 @@
+{
+  "_comment": "Fictional insurance-brokerage inbox for OpenPoke evaluations. All people, companies and policies are invented; domains use example.*.",
+  "account_email": "jordan@brightpath-brokers.example",
+  "contacts": [
+    {
+      "name": "Priya Patel",
+      "email": "priya.patel@example.com"
+    },
+    {
+      "name": "Alice Martin",
+      "email": "alice.martin@example.com"
+    },
+    {
+      "name": "Bob Nguyen",
+      "email": "bob.nguyen@example.com"
+    },
+    {
+      "name": "Sarah Chen",
+      "email": "sarah.chen@northwind.example"
+    },
+    {
+      "name": "Sarah Chen (Harbor Law)",
+      "email": "s.chen@harborlaw.example"
+    },
+    {
+      "name": "Marcus Webb",
+      "email": "marcus.webb@example.com"
+    },
+    {
+      "name": "Dan Okafor",
+      "email": "dan@okafor-builders.example"
+    },
+    {
+      "name": "Lena Brooks",
+      "email": "lena@brightpath-brokers.example"
+    }
+  ],
+  "threads": [
+    {
+      "key": "priya_renewal",
+      "thread_id": "18c1a00000000001",
+      "subject": "Auto policy AU-77120 renewal question",
+      "messages": [
+        {
+          "message_id": "18c1a00000000001",
+          "from": "Priya Patel <priya.patel@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Auto policy AU-77120 renewal question",
+          "body": "Hi Jordan, my auto policy AU-77120 renews on December 1. The renewal notice shows a premium increase from $1,240 to $1,385. Can you tell me why it went up and whether there is any discount I could still get? I have had no claims. Thanks, Priya",
+          "age": "2d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000000101",
+          "from": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "to": "Priya Patel <priya.patel@example.com>",
+          "subject": "Re: Auto policy AU-77120 renewal question",
+          "body": "Hi Priya, thanks for reaching out. I am looking into the AU-77120 renewal with the carrier and will get back to you shortly. Jordan",
+          "age": "1d20h",
+          "labels": [
+            "SENT"
+          ]
+        },
+        {
+          "message_id": "18c1b00000000102",
+          "from": "Priya Patel <priya.patel@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: Auto policy AU-77120 renewal question",
+          "body": "Thanks Jordan. Also, I recently installed a telematics device through my bank's program; does that count for anything? Priya",
+          "age": "1d2h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "maple_priya_notice",
+      "thread_id": "18c1a00000000002",
+      "subject": "Renewal notice: AU-77120 (Patel)",
+      "messages": [
+        {
+          "message_id": "18c1a00000000002",
+          "from": "Maple Mutual Renewals <renewals@maplemutual.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Renewal notice: AU-77120 (Patel)",
+          "body": "Renewal notice for policy AU-77120, insured Priya Patel. Effective 2026-12-01. Premium $1,385. Rate change reflects territory base rate adjustment of 6% and removal of new-customer discount. Telematics discount available on request (up to 8%).",
+          "age": "3d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "alice_renewal",
+      "thread_id": "18c1a00000000003",
+      "subject": "Home insurance renewal HO-55102",
+      "messages": [
+        {
+          "message_id": "18c1a00000000003",
+          "from": "Alice Martin <alice.martin@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Home insurance renewal HO-55102",
+          "body": "Hello, my home policy HO-55102 is up for renewal at the end of the month. I would like to keep the same coverage. Do I need to send anything? Best, Alice Martin",
+          "age": "4d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000000301",
+          "from": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "to": "Alice Martin <alice.martin@example.com>",
+          "subject": "Re: Home insurance renewal HO-55102",
+          "body": "Hi Alice, nothing needed yet. I will send you the renewal summary before it is due. Jordan",
+          "age": "3d22h",
+          "labels": [
+            "SENT"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "bob_renewal",
+      "thread_id": "18c1a00000000004",
+      "subject": "HO-55187 renewal",
+      "messages": [
+        {
+          "message_id": "18c1a00000000004",
+          "from": "Bob Nguyen <bob.nguyen@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "HO-55187 renewal",
+          "body": "Hi Jordan, my home insurance HO-55187 renews soon. Could you check whether bundling with my auto policy would save money? Bob Nguyen",
+          "age": "5d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000000401",
+          "from": "Bob Nguyen <bob.nguyen@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: HO-55187 renewal",
+          "body": "Quick update: I already renewed HO-55187 directly through the carrier's website yesterday, so no need to do anything on that one. Thanks! Bob",
+          "age": "6h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sarah_client",
+      "thread_id": "18c1a00000000005",
+      "subject": "Water damage question - HO-48213",
+      "messages": [
+        {
+          "message_id": "18c1a00000000005",
+          "from": "Sarah Chen <sarah.chen@northwind.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Water damage question - HO-48213",
+          "body": "Hi Jordan, we noticed a small water stain on the ceiling under the upstairs bathroom. Is that covered under our home policy HO-48213? Should I file a claim or get a plumber first? Sarah Chen (Northwind Ave)",
+          "age": "1d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sarah_counsel",
+      "thread_id": "18c1a00000000006",
+      "subject": "Claim CL-2291 - request for documents",
+      "messages": [
+        {
+          "message_id": "18c1a00000000006",
+          "from": "Sarah Chen <s.chen@harborlaw.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Claim CL-2291 - request for documents",
+          "body": "Dear Mr. Reyes, I represent the claimant in claim CL-2291 (auto collision, March 14). Please provide the declarations page and any recorded statements from your insured within 14 days. Regards, Sarah Chen, Harbor Law LLP",
+          "age": "2d4h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000000601",
+          "from": "Northline Claims <claims@northline.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: Claim CL-2291 - request for documents",
+          "body": "Jordan, FYI we received a document request from claimant's counsel (Harbor Law) on CL-2291. Do not send recorded statements directly; route the request to the adjuster. Northline Claims",
+          "age": "1d6h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "marcus_renewal",
+      "thread_id": "18c1a00000000007",
+      "subject": "AU-77210 payment plan",
+      "messages": [
+        {
+          "message_id": "18c1a00000000007",
+          "from": "Marcus Webb <marcus.webb@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "AU-77210 payment plan",
+          "body": "Hi, for my auto policy AU-77210 can I switch to monthly payments at renewal? Marcus Webb",
+          "age": "3d5h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "coi_request",
+      "thread_id": "18c1a00000000008",
+      "subject": "Certificate of insurance needed - Ridgeline job site",
+      "messages": [
+        {
+          "message_id": "18c1a00000000008",
+          "from": "Dan Okafor <dan@okafor-builders.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Certificate of insurance needed - Ridgeline job site",
+          "body": "Hi Jordan, Ridgeline Construction needs a certificate of insurance naming them as additional insured for our job at 410 Harbor Street before Monday. General liability policy GL-30455. Can you send it to them at coi@ridgeline.example? Dan Okafor, Okafor Builders",
+          "age": "20h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "northline_claim",
+      "thread_id": "18c1a00000000009",
+      "subject": "CL-2291 adjuster assignment",
+      "messages": [
+        {
+          "message_id": "18c1a00000000009",
+          "from": "Northline Claims <claims@northline.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "CL-2291 adjuster assignment",
+          "body": "Claim CL-2291 has been assigned to adjuster Mia Torres (mia.torres@northline.example). Please direct all correspondence to her.",
+          "age": "1d5h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "maple_bulletin",
+      "thread_id": "18c1a0000000000a",
+      "subject": "Maple Mutual Q4 broker bulletin",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000a",
+          "from": "Maple Mutual Renewals <renewals@maplemutual.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Maple Mutual Q4 broker bulletin",
+          "body": "Quarterly bulletin: new telematics discount program, updated underwriting guidelines for coastal properties, and holiday office hours.",
+          "age": "6d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "lena_internal",
+      "thread_id": "18c1a0000000000b",
+      "subject": "Team meeting moved",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000b",
+          "from": "Lena Brooks <lena@brightpath-brokers.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Team meeting moved",
+          "body": "Hi Jordan, the Thursday team meeting moved to 3pm. Lena",
+          "age": "1d1h",
+          "labels": [
+            "SENT"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "newsletter",
+      "thread_id": "18c1a0000000000c",
+      "subject": "Insurance Weekly: rate trends",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000c",
+          "from": "Insurance Weekly <news@insweekly.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Insurance Weekly: rate trends",
+          "body": "This week: auto rate trends, cyber insurance outlook, and a webinar invitation.",
+          "age": "2d8h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PROMOTIONS"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "alice_docs",
+      "thread_id": "18c1a0000000000d",
+      "subject": "HO-55102 inspection photos",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000d",
+          "from": "Alice Martin <alice.martin@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "HO-55102 inspection photos",
+          "body": "Jordan, attaching the roof inspection photos the carrier asked for last year in case they are needed for the renewal. Alice",
+          "age": "2d1h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ],
+          "attachments": [
+            {
+              "filename": "roof_inspection.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "priya_payment",
+      "thread_id": "18c1a0000000000e",
+      "subject": "Payment confirmation AU-77120",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000e",
+          "from": "Maple Mutual Billing <billing@maplemutual.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Payment confirmation AU-77120",
+          "body": "Payment received for policy AU-77120 installment 11 of 12. Thank you.",
+          "age": "9d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "bob_auto",
+      "thread_id": "18c1a0000000000f",
+      "subject": "Auto quote for Bob Nguyen",
+      "messages": [
+        {
+          "message_id": "18c1a0000000000f",
+          "from": "Maple Mutual Renewals <renewals@maplemutual.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Auto quote for Bob Nguyen",
+          "body": "Quote request received for Bob Nguyen auto policy. Bundled discount of 12% applies if home policy HO-55187 stays with Maple Mutual.",
+          "age": "4d3h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "dan_followup",
+      "thread_id": "18c1a00000000010",
+      "subject": "Re: COI - Okafor Builders",
+      "messages": [
+        {
+          "message_id": "18c1a00000000010",
+          "from": "Ridgeline Construction <coi@ridgeline.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: COI - Okafor Builders",
+          "body": "Hello, following up on the certificate of insurance for Okafor Builders (GL-30455). We need it before work starts Monday.",
+          "age": "4h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sarah_client_photos",
+      "thread_id": "18c1a00000000011",
+      "subject": "Photos of the ceiling stain",
+      "messages": [
+        {
+          "message_id": "18c1a00000000011",
+          "from": "Sarah Chen <sarah.chen@northwind.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Photos of the ceiling stain",
+          "body": "Here are photos of the stain. The plumber is coming Thursday. Sarah",
+          "age": "5h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ],
+          "attachments": [
+            {
+              "filename": "ceiling1.jpg"
+            },
+            {
+              "filename": "ceiling2.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "kevin_quote",
+      "thread_id": "18c1a00000000012",
+      "subject": "Commercial property quote - Liu Bakery",
+      "messages": [
+        {
+          "message_id": "18c1a00000000012",
+          "from": "Kevin Liu <kevin.liu@liu-bakery.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Commercial property quote - Liu Bakery",
+          "body": "Hi Jordan, we are opening a second bakery location and need a commercial property quote. Building value about $650k. Kevin Liu",
+          "age": "3d2h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001201",
+          "from": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "to": "Kevin Liu <kevin.liu@liu-bakery.example>",
+          "subject": "Re: Commercial property quote - Liu Bakery",
+          "body": "Hi Kevin, happy to help. Could you send the address and the year the building was built? Jordan",
+          "age": "3d",
+          "labels": [
+            "SENT"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001202",
+          "from": "Kevin Liu <kevin.liu@liu-bakery.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: Commercial property quote - Liu Bakery",
+          "body": "Address is 88 Mill Road, built 1998, sprinklered. Kevin",
+          "age": "2d20h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "alice_endorsement",
+      "thread_id": "18c1a00000000013",
+      "subject": "Endorsement processed HO-55102",
+      "messages": [
+        {
+          "message_id": "18c1a00000000013",
+          "from": "Maple Mutual Renewals <renewals@maplemutual.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Endorsement processed HO-55102",
+          "body": "Endorsement processed for HO-55102 (Alice Martin): jewelry rider added, effective immediately.",
+          "age": "12d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "other_claim",
+      "thread_id": "18c1a00000000014",
+      "subject": "CL-3107 status update",
+      "messages": [
+        {
+          "message_id": "18c1a00000000014",
+          "from": "Northline Claims <claims@northline.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "CL-3107 status update",
+          "body": "Claim CL-3107 (insured: Marcus Webb, hail damage) is approved. Payment issued.",
+          "age": "6d4h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001401",
+          "from": "Marcus Webb <marcus.webb@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: CL-3107 status update",
+          "body": "Thanks Jordan, I saw the payment for CL-3107 arrive. Marcus",
+          "age": "5d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "priya_driver",
+      "thread_id": "18c1a00000000015",
+      "subject": "Adding my son as a driver",
+      "messages": [
+        {
+          "message_id": "18c1a00000000015",
+          "from": "Priya Patel <priya.patel@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Adding my son as a driver",
+          "body": "Hi Jordan, separate question: my son Arjun just got his license. How do I add him to AU-77120 and what will it cost? Priya",
+          "age": "8h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001501",
+          "from": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "to": "Priya Patel <priya.patel@example.com>",
+          "subject": "Re: Adding my son as a driver",
+          "body": "Hi Priya, I can add Arjun. I just need his license number and date of birth. Jordan",
+          "age": "7h",
+          "labels": [
+            "SENT"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "marcus_address",
+      "thread_id": "18c1a00000000016",
+      "subject": "Address change",
+      "messages": [
+        {
+          "message_id": "18c1a00000000016",
+          "from": "Marcus Webb <marcus.webb@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Address change",
+          "body": "I moved to 19 Cedar Lane. Please update all my policies. Marcus",
+          "age": "2d6h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "elena_umbrella",
+      "thread_id": "18c1a00000000017",
+      "subject": "Umbrella policy question",
+      "messages": [
+        {
+          "message_id": "18c1a00000000017",
+          "from": "Elena Rossi <elena.rossi@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Umbrella policy question",
+          "body": "Hi Jordan, do you recommend a $1M or $2M umbrella policy for a household with two cars and a rental unit? Elena Rossi",
+          "age": "4d6h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001701",
+          "from": "Elena Rossi <elena.rossi@example.com>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Re: Umbrella policy question",
+          "body": "Following up on my umbrella question when you have a moment. Elena",
+          "age": "1d3h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "webinar",
+      "thread_id": "18c1a00000000018",
+      "subject": "Webinar: Cyber coverage for small businesses",
+      "messages": [
+        {
+          "message_id": "18c1a00000000018",
+          "from": "Broker Academy <events@brokeracademy.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Webinar: Cyber coverage for small businesses",
+          "body": "Join our free webinar on cyber coverage for small businesses next Tuesday.",
+          "age": "3d8h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PROMOTIONS"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "lena_q4_list",
+      "thread_id": "18c1a00000000019",
+      "subject": "Q4 renewals to review",
+      "messages": [
+        {
+          "message_id": "18c1a00000000019",
+          "from": "Lena Brooks <lena@brightpath-brokers.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "Q4 renewals to review",
+          "body": "Jordan, please review these Q4 renewals this week: Priya Patel (AU-77120), Alice Martin (HO-55102), Bob Nguyen (HO-55187), Marcus Webb (AU-77210). Lena",
+          "age": "2d2h",
+          "labels": [
+            "SENT"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "eo_notice",
+      "thread_id": "18c1a0000000001a",
+      "subject": "E&O policy renewal for BrightPath",
+      "messages": [
+        {
+          "message_id": "18c1a0000000001a",
+          "from": "Shield E&O <underwriting@shield-eo.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "E&O policy renewal for BrightPath",
+          "body": "Your agency's errors and omissions policy renews on January 15. Please complete the attached application.",
+          "age": "7d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ],
+          "attachments": [
+            {
+              "filename": "eo_application.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "dan_second_coi",
+      "thread_id": "18c1a0000000001b",
+      "subject": "COI for Elm Street project",
+      "messages": [
+        {
+          "message_id": "18c1a0000000001b",
+          "from": "Dan Okafor <dan@okafor-builders.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "COI for Elm Street project",
+          "body": "Jordan, unrelated to Ridgeline: we will also need a COI for the Elm Street project in January, holder is the city of Fairview. No rush. Dan",
+          "age": "1d8h",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sarah_client_last_year",
+      "thread_id": "18c1a0000000001c",
+      "subject": "HO-48213 renewal 2025",
+      "messages": [
+        {
+          "message_id": "18c1a0000000001c",
+          "from": "Sarah Chen <sarah.chen@northwind.example>",
+          "to": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "subject": "HO-48213 renewal 2025",
+          "body": "Hi Jordan, renewing HO-48213 for another year sounds good. Sarah Chen",
+          "age": "300d",
+          "labels": [
+            "INBOX",
+            "CATEGORY_PERSONAL"
+          ]
+        },
+        {
+          "message_id": "18c1b00000001c01",
+          "from": "Jordan Reyes <jordan@brightpath-brokers.example>",
+          "to": "Sarah Chen <sarah.chen@northwind.example>",
+          "subject": "Re: HO-48213 renewal 2025",
+          "body": "Great, HO-48213 is renewed. Jordan",
+          "age": "299d",
+          "labels": [
+            "SENT"
+          ]
+        }
+      ]
+    }
+  ]
+}

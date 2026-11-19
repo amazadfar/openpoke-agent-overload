@@ -1,0 +1,14 @@
+{
+  "id": "S9",
+  "title": "Traced request",
+  "layer": "L3+L2",
+  "stresses": [
+    "M3"
+  ],
+  "gold_threads": {},
+  "steps": [
+    {
+      "user": "can you fetch my most recent emails?"
+    }
+  ]
+}

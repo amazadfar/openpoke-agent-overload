@@ -1,0 +1,53 @@
+{
+  "id": "S2",
+  "title": "Parallel spawn",
+  "layer": "L3",
+  "stresses": [
+    "false merges",
+    "in-turn spawns"
+  ],
+  "gold_threads": {
+    "alice_renewal": {
+      "thread_id": "18c1a00000000003",
+      "counterparties": [
+        "alice.martin@example.com"
+      ]
+    },
+    "bob_renewal": {
+      "thread_id": "18c1a00000000004",
+      "counterparties": [
+        "bob.nguyen@example.com"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "user": "Draft renewal reminder emails to Alice Martin (HO-55102) and Bob Nguyen (HO-55187), one each, and show me both drafts.",
+      "gold_threads": {
+        "alice": "alice_renewal",
+        "bob": "bob_renewal"
+      }
+    },
+    {
+      "user": "Bob already renewed, so cancel his draft. Keep Alice's.",
+      "gold_thread": "bob_renewal",
+      "required_ids": [
+        "$draft:bob_renewal"
+      ]
+    },
+    {
+      "user": "Send Alice's.",
+      "gold_thread": "alice_renewal",
+      "required_ids": [
+        "$draft:alice_renewal"
+      ],
+      "expect_side_effects": [
+        "GMAIL_SEND_DRAFT"
+      ],
+      "allowed_side_effects": [
+        "GMAIL_SEND_DRAFT",
+        "GMAIL_REPLY_TO_THREAD"
+      ]
+    }
+  ]
+}

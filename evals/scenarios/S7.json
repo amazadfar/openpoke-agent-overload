@@ -1,0 +1,12 @@
+{
+  "id": "S7",
+  "title": "Watcher bursts",
+  "layer": "L2",
+  "stresses": [
+    "4D"
+  ],
+  "l2_tests": [
+    "tests/mechanism/test_orchestration_fixes.py (watcher tests)"
+  ],
+  "description": "10 important emails; a second burst while the first turn runs; one classifier error."
+}

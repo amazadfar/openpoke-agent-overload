@@ -1,0 +1,42 @@
+{
+  "id": "S5",
+  "title": "Long-tail revisit",
+  "layer": "L3",
+  "stresses": [
+    "dormancy/revival",
+    "card memory"
+  ],
+  "gold_threads": {
+    "kevin_quote": {
+      "thread_id": "18c1a00000000012",
+      "counterparties": [
+        "kevin.liu@liu-bakery.example"
+      ]
+    }
+  },
+  "deviation": "The 30 intervening dispatches are seeded synthetically (journal + roster/registry entries) instead of 30 live dispatches, to bound LLM spend.",
+  "steps": [
+    {
+      "user": "Draft a reply to Kevin Liu about the Liu Bakery property quote: tell him we're requesting quotes from two carriers and will follow up.",
+      "gold_thread": "kevin_quote"
+    },
+    {
+      "seed_agents": {
+        "count": 30,
+        "near_misses": false
+      }
+    },
+    {
+      "advance_clock": {
+        "days": 15
+      }
+    },
+    {
+      "user": "Kevin Liu is asking if his quote is ready. Update the draft to say we expect it by Friday.",
+      "gold_thread": "kevin_quote",
+      "required_ids": [
+        "$draft:kevin_quote"
+      ]
+    }
+  ]
+}

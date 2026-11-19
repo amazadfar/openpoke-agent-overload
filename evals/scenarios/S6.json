@@ -1,0 +1,16 @@
+{
+  "id": "S6",
+  "title": "Storm",
+  "layer": "L2",
+  "stresses": [
+    "M4",
+    "4A",
+    "4B",
+    "4C",
+    "starvation"
+  ],
+  "l2_tests": [
+    "tests/mechanism/test_orchestration_fixes.py::test_s6_storm_with_rate_limiter"
+  ],
+  "description": "15 triggers due at 08:00 plus a user message at 08:00 with a fake rate limiter (429 above a concurrency threshold)."
+}

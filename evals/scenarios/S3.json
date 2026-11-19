@@ -1,0 +1,58 @@
+{
+  "id": "S3",
+  "title": "Look-alikes",
+  "layer": "L3",
+  "stresses": [
+    "vetoes",
+    "candidate quality"
+  ],
+  "gold_threads": {
+    "sarah_client": {
+      "thread_id": "18c1a00000000005",
+      "counterparties": [
+        "sarah.chen@northwind.example"
+      ]
+    },
+    "sarah_counsel": {
+      "thread_id": "18c1a00000000006",
+      "counterparties": [
+        "claims@northline.example",
+        "s.chen@harborlaw.example"
+      ]
+    },
+    "marcus_renewal": {
+      "thread_id": "18c1a00000000007",
+      "counterparties": [
+        "marcus.webb@example.com"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "user": "Draft a reply to Sarah Chen about the water stain: tell her to get the plumber out first and send photos.",
+      "gold_thread": "sarah_client"
+    },
+    {
+      "user": "Now draft a reply to Sarah Chen at Harbor Law acknowledging the CL-2291 document request and saying the adjuster will respond.",
+      "gold_thread": "sarah_counsel"
+    },
+    {
+      "user": "Marcus Webb asked about monthly payments on AU-77210. Draft a reply saying yes, that's possible at renewal.",
+      "gold_thread": "marcus_renewal"
+    },
+    {
+      "user": "For the water stain email to Sarah, add that she can call me any time.",
+      "gold_thread": "sarah_client",
+      "required_ids": [
+        "$draft:sarah_client"
+      ]
+    },
+    {
+      "user": "What exactly did we draft for Harbor Law?",
+      "gold_thread": "sarah_counsel",
+      "required_ids": [
+        "$draft:sarah_counsel"
+      ]
+    }
+  ]
+}
