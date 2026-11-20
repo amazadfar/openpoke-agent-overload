@@ -162,7 +162,7 @@ Each fix below lists the problem, the change, the alternatives considered, and t
 
 ### 1.8 `SEND_LEDGER` (D2), honest timeouts, trigger claims
 
-**Ledger**: `data_dir()/safety.db`, schema in Appendix D. A send runs only if `ledger.begin()` returns `Started`.
+**Ledger**: `data_dir()/safety.db`, schema in [Appendix D](00_SPEC.md#appendix-d-sqlite-schemas). A send runs only if `ledger.begin()` returns `Started`.
 
 ```mermaid
 stateDiagram-v2
@@ -185,7 +185,7 @@ stateDiagram-v2
   - A draft created outside OpenPoke has no metadata, so its identity is `draft:<id>` and it has no near key.
 - **I2 is enforced by the database.** A partial unique index on `fingerprint WHERE status IN ('pending','sent','unknown')`. A second identical send is `Blocked`.
 - **Near duplicates.** `email|<thread or new>|<recipients>[|<subject> if new]` or `forward|<message>|<recipients>`. Reply and send-draft share the `email|` space, so a regenerated draft is caught. A match within 24 h returns `ConfirmationRequired`.
-  - The check runs inside a `BEGIN IMMEDIATE` transaction under a process lock. That closes the check-then-insert race the spec flagged: two agents cannot both pass the near check.
+  - The check runs inside a `BEGIN IMMEDIATE` transaction under a process lock. That closes the check-then-insert race [the spec](00_SPEC.md) flagged: two agents cannot both pass the near check.
 - **Overrides.** `confirm_duplicate_of` (schema-scoped to this flag) is accepted only when `root_origin == "user"`. An exact-duplicate override is stored with fingerprint `…#override:<id>`, so it is itself at-most-once.
   - This is duplicate protection, not authorization: a model in a user-rooted chain could still set it. Human authorization is the send gate (1.10).
 - **Exceptions.** An exception mid-send returns `outcome_unknown` to the agent instead of raising. The row becomes `unknown`.
@@ -383,20 +383,20 @@ One loop-guard horizon is derived rather than tuned: `MAX_TOOL_ITERATIONS × LLM
 
 ## Schemas and deviations
 
-SQLite schemas follow Appendix D of the spec. Additions, each small and documented:
+SQLite schemas follow [Appendix D of the spec](00_SPEC.md#appendix-d-sqlite-schemas). Additions, each small and documented:
 - **`registry.db`.**
   - `agents.latest_request` and `agents.last_outcome_at`, for the card's "latest request" and outcome time.
   - A `drafts` table (agent, draft id, thread, recipients, subject), so the card can show draft metadata even without the ledger.
 - **`safety.db`.** As specified. Access is through `db.write()`: one connection per operation, `BEGIN IMMEDIATE`, a process lock, and retries on "database is locked".
 
-## Deviations from the spec
+## Deviations from [the spec](00_SPEC.md)
 
 | Deviation | Why |
 |---|---|
 | The parity test extracts the baseline with `git archive` instead of a `git worktree` | Read-only, and leaves no worktree metadata. It is the same comparison. A negative control proves it detects a one-word behaviour change. |
 | `<tool_ids>` carries compact `refs` for email lists | Bare id sets cannot be mapped to "which email". |
 | `extract_from_text` also recognises Gmail draft ids (`r-<digits>`) | The resolver's strong-id step needs draft ids from instructions |
-| Near-duplicate check is atomic (`BEGIN IMMEDIATE`) | Closes the cross-agent race the spec asked to document |
+| Near-duplicate check is atomic (`BEGIN IMMEDIATE`) | Closes the cross-agent race [the spec](00_SPEC.md) asked to document |
 | Successful runs with an in-doubt send are reported `[UNKNOWN]` | Stricter honesty than "only on failure" |
 | A trigger run cancelled at shutdown keeps its claim `claimed` | It is reported as interrupted on the next start, rather than marked failed |
 | E2 dispatches the fast and the slow task from two turns (user + trigger) | Turn-scoped batching keeps same-turn work together by design; M6 is about unrelated work |

@@ -1,6 +1,6 @@
 # Work log
 
-A record of steps, decisions, deviations and test results, in order. Times are local (America/Toronto).
+A record of steps, decisions, deviations and test results, in order. Times are local.
 
 ## 2026-11-19: Step 0 (inspect and preserve)
 
@@ -8,7 +8,7 @@ A record of steps, decisions, deviations and test results, in order. Times are l
 - Backed up `server/data` outside the repo: 9 files, 61,992 bytes. The file count and total size match the original.
 - Environment: `uv` 0.12 with the project venv `openpoke/.venv` (CPython 3.13.15). `uv add --dev pytest` installed pytest 9.2.0. I also added `requirements-dev.txt` for pip users.
 - Created branch `overload-fixes`. Committed the pre-existing local setup changes plus `pyproject.toml` and `uv.lock` as `baseline: pre-existing local setup changes`. Tagged that commit `baseline-pre-fixes`.
-- Re-verified the facts in the spec (§1.3 and §2.1). Line numbers match. Differences:
+- Re-verified the facts in [the spec](00_SPEC.md) (§1.3 and §2.1). Line numbers match. Differences:
   - `INVESTIGATION.md` does not exist in the repo, so there was nothing to exclude.
   - `tasks/search_email/gmail_internal.py::gmail_fetch_emails` is dead code. Only its schema is imported. It would also raise `TypeError` if called, because it passes `arguments` positionally to a keyword-only parameter. It is left unchanged and documented.
   - Trigger runs never call `record_request`, so trigger instructions are not journaled. This is baseline behaviour and is kept.
@@ -23,7 +23,7 @@ A record of steps, decisions, deviations and test results, in order. Times are l
   - `conftest.py` sets a temp data dir, fake Gmail and a dummy API key.
   - `tests/scenarios.py` reproduces E1–E7.
   - Ten characterization tests pin baseline behaviour.
-  - Parity test: deviation from the spec. It uses `git archive` of the tag instead of a `git worktree`. This is read-only and leaves no worktree metadata behind. It is the same comparison.
+  - Parity test: deviation from [the spec](00_SPEC.md). It uses `git archive` of the tag instead of a `git worktree`. This is read-only and leaves no worktree metadata behind. It is the same comparison.
   - Added a negative control: a one-word change to the result format breaks parity.
 
 ## Phase 0, continued

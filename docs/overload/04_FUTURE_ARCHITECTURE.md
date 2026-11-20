@@ -1,6 +1,6 @@
 # 04: Future architecture (direction only, not implemented)
 
-The fixes in this branch are incremental and flag-gated, so each one can be measured against the baseline. Two larger changes would subsume several of them. Both are written up here deliberately rather than built: neither is needed to remove the overload mechanisms measured in 01. Each would also be a large, hard-to-review change for a take-home.
+The fixes in this branch are incremental and flag-gated, so each one can be measured against the baseline. Two larger changes would subsume several of them. Both are written up here deliberately rather than built: neither is needed to remove the overload mechanisms measured in 01. Each would also be a large, hard-to-review change.
 
 ## 1G: Entity-keyed agents
 

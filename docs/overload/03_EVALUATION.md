@@ -120,7 +120,7 @@ Offline replay of every recorded agent query from the original runs through the 
 **Reporting rules.**
 - Every number is labelled **measured** (telemetry or provider usage), **estimated** (chars ÷ 4) or **hypothesis**.
 - N and repetitions are always given.
-- Gates were declared in the spec before any run, and no threshold was changed after seeing results.
+- Gates were declared in [the spec](00_SPEC.md) before any run, and no threshold was changed after seeing results.
 - Constants were not tuned on these scenarios. K = 5 was *confirmed* by a probe on the baseline data; no value changed as a result.
 
 ## L2 results (deterministic; MEASURED by the tests)
@@ -413,7 +413,7 @@ S9 baseline with `anthropic/claude-haiku-5.5` (original runs only; 3 repetitions
 |---|---|---|
 | U13: Composio thread-safety and real response-shape probe | **Not executed** | It would touch the real Gmail account, which needs explicit authorization (`OPENPOKE_ALLOW_LIVE_GMAIL_READS=1` plus confirmation) that was not given. `GMAIL_WORKERS` stays 1, and the fake's `data` payload shapes follow the Gmail API, not verified Composio output. |
 | Rate-limit sizing of C (U4) | **No evidence** | 0 responses with status 429 in all L3 runs (concurrency in these scenarios stays low). C = 4, R = 1 remain provisional. |
-| Held-out fixture permutations | **Not executed** | The spec suggests reporting on held-out variants generated with a fixed seed. No constant was tuned on S1–S3 (K was only confirmed), so the development/held-out split was not needed for tuning. Results are reported on the scenarios as written, a limitation stated in 05. |
+| Held-out fixture permutations | **Not executed** | [The spec](00_SPEC.md) suggests reporting on held-out variants generated with a fixed seed. No constant was tuned on S1–S3 (K was only confirmed), so the development/held-out split was not needed for tuning. Results are reported on the scenarios as written, a limitation stated in 05. |
 | Phase1 variant in the re-run | **Not executed** | Optional in the submission pass. Phase 1 gates are reported on the original runs. |
 | Python 3.11 and 3.12 | **Not executed** | The suite was run on 3.10 (the oldest version the pip path supports) and on 3.13 (the uv interpreter). |
 | L3 with the send gate on | **Not executed** | The gate needs a human typing a code. L3 scripts no human in the loop, so the gate is evaluated in L2 only. |

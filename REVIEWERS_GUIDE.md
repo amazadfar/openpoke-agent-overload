@@ -6,7 +6,7 @@
   - load amplifiers, which multiply LLM calls and freeze the event loop;
   - an identity and memory weakness: agents are bare names, and each replays its whole history;
   - unsafe side effects: nothing stops a duplicate email.
-- **Fixed and measured.** Nineteen flag-gated fixes. Compared with the same real model on the same scenarios against a fake Gmail, the fixes cut LLM calls by 38%, tokens by 49% and cost by 30%. They remove every 8-round-limit hit (110 → 0), halve interaction-agent calls per turn, and keep the agent roster flat as agents accumulate. Deterministic tests prove each mechanism, and with flags off a parity test proves the code is identical to upstream.
+- **Fixed and measured.** Nineteen flag-gated fixes. Compared with the same real model on the same scenarios against a fake Gmail, the fixes cut LLM calls by 38%, tokens by 49% and cost by 30%. They remove every 8-round-limit hit (110 → 0), halve interaction-agent calls per turn, and keep the agent roster flat as agents accumulate. Deterministic tests prove each mechanism, and with flags off a parity test proves behaviour is identical to the `baseline-pre-fixes` tag (upstream plus my local setup changes: model override, Composio fixes).
 - **Not solved.**
   - **Routing.** The model still re-uses existing agents for unrelated threads: merge decisions fell from 40 to 20, so the hard gate fails. Those agents still wrote to the right person and thread.
   - **Sends.** Both variants sent emails when only a draft was asked for, and in each variant one such send was followed by a duplicate. The fixed variant's duplicate got through a duplicate-override rule that trusted agent-started turns. **That rule is fixed** after the re-run: an L2 regression test covers it, plus a post-fix targeted re-run.
@@ -20,7 +20,7 @@
 
 ## Results
 
-Commit hashes cited in docs/ and evals/results/ (e.g. 9eeec00, c98557b) refer to the development branch the work was done on; the submitted history squashes that work into four commits on top of the baseline, so those hashes don't resolve in this repository.
+Commit hashes cited in docs/ and evals/results/ (e.g. 9eeec00, c98557b) refer to the development branch the work was done on; the submitted history squashes that work into five commits on top of the baseline, so those hashes don't resolve in this repository.
 
 **Setup.** Model `openai/gpt-6-luna`, a fake Gmail and a fictional brokerage inbox. 27 runs per variant: 7 scenarios × 3 repetitions, with S4 at 10, 200 and 500 agents. These are re-run numbers, scored with metrics v2. All values are MEASURED. Sources: [`evals/results/summary.md`](evals/results/summary.md), itemised in [`audit.md`](evals/results/audit.md).
 
@@ -89,7 +89,7 @@ python -m evals.run_live --variant fixed --scenarios all --repetitions 3        
 
 Everything is flag-gated, for two reasons:
 - the baseline and the fixes run on the same code, so the comparison is before/after on identical code;
-- a parity test proves flags-off behaviour equals upstream.
+- a parity test proves flags-off behaviour is identical to the `baseline-pre-fixes` tag (upstream plus my local setup changes: model override, Composio fixes).
 
 `OPENPOKE_FIXES=all` enables every group except the last.
 

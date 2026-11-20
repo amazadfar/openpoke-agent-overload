@@ -4,6 +4,7 @@ Start with [`REVIEWERS_GUIDE.md`](../../REVIEWERS_GUIDE.md) at the repository ro
 
 | Document | What it covers |
 |---|---|
+| [00_SPEC.md](00_SPEC.md) | The implementation brief handed to Claude Code before any code changed: verbatim except for removed personal context; its evaluation gates were fixed before the first run |
 | [01_PROBLEM_AND_EVIDENCE.md](01_PROBLEM_AND_EVIDENCE.md) | What OpenPoke is, what "agent overload" means here (three classes), mechanisms M1–M8 with evidence, other gaps found |
 | [02_DESIGN.md](02_DESIGN.md) | Target architecture, every fix with rationale and trade-offs, flags, constants (with chosen values and evidence), schemas, invariants, deviations, traceability matrix |
 | [03_EVALUATION.md](03_EVALUATION.md) | Test layers (L1/L2/L3), fixture, scenarios, metrics (v1 and v2), fake-Gmail fidelity, gates, original and re-run results, what was not executed |

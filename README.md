@@ -1,6 +1,6 @@
 # OpenPoke 🌴
 
-> **Agent-overload work.** This fork makes OpenPoke resilient to agent overload, using 19 flag-gated fixes measured against the unchanged baseline. Start with [`REVIEWERS_GUIDE.md`](REVIEWERS_GUIDE.md). It covers what was fixed, what was not, what was found, how to run it, and where to look. Full documentation: [`docs/overload/`](docs/overload/README.md). The upstream README follows unchanged.
+> **Agent-overload work.** This fork makes OpenPoke resilient to agent overload, using 19 flag-gated fixes measured against the unchanged baseline. Start with [`REVIEWERS_GUIDE.md`](REVIEWERS_GUIDE.md). It covers what was fixed, what was not, what was found, how to run it, and where to look. Full documentation: [`docs/overload/`](docs/overload/README.md). The upstream README follows, with my setup changes and an added agent-overload section.
 
 OpenPoke is a simplified, open-source take on [Interaction Company’s](https://interaction.co/about) [Poke](https://poke.com/) assistant—built to show how a multi-agent orchestration stack can feel genuinely useful. It keeps the handful of things Poke is great at (email triage, reminders, and persistent agents) while staying easy to spin up locally.
 
@@ -83,7 +83,7 @@ This branch makes OpenPoke resilient to *agent overload* and measures the differ
 - **an identity and memory weakness:** agents are bare names, and each replays its whole journal;
 - **a missing safety property:** nothing stops the same email from being sent twice, and timeouts misreport sends.
 
-Every fix sits behind a flag that is **off by default**. With every flag off, behaviour is identical to upstream, proven by a parity test against the `baseline-pre-fixes` tag.
+Every fix sits behind a flag that is **off by default**. With every flag off, behaviour is identical to the `baseline-pre-fixes` tag (upstream plus my local setup changes: model override, Composio fixes), proven by a parity test.
 
 ```bash
 OPENPOKE_FIXES=all python -m server.server          # every fix except the send gate
